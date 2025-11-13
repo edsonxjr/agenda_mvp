@@ -1,0 +1,13 @@
+# Dependências do Node (O MAIS IMPORTANTE)
+node_modules/
+
+# Arquivos de "segredos" (senhas, chaves de API)
+# (Mesmo que você não tenha um agora, é bom já deixar)
+.env
+
+# Logs
+*.log
+
+# Arquivos de sistema (Opcional, mas boa prática)
+.DS_Store
+Thumbs.db
