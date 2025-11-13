@@ -2,12 +2,16 @@
 node_modules/
 
 # Arquivos de "segredos" (senhas, chaves de API)
-# (Mesmo que você não tenha um agora, é bom já deixar)
 .env
+.env.local
 
 # Logs
 *.log
+npm-debug.log
 
-# Arquivos de sistema (Opcional, mas boa prática)
+# Pasta de build (para o frontend Vue)
+dist/
+
+# Arquivos de sistema
 .DS_Store
 Thumbs.db
