@@ -13,7 +13,9 @@ app.use(cors());
 app.get('/', (req: Request, res: Response) => {
   return res.json({ message: 'API da Agenda está rodando!' });
 });
-
+app.post('/api/contacts', async (request: Request, response: Response) => {
+  const { name, email, phone } = request.body
+})
 app.listen(port, () => {
   console.log(`🚀 Servidor backend rodando na porta ${port}`);
-});
+})
