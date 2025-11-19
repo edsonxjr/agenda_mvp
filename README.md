@@ -1,48 +1,44 @@
-# 🎯 Agenda de Contatos - MVP
+# 📞 Agenda MVP Fullstack
 
-![Status](https://img.shields.io/badge/Status-Em_Desenvolvimento-blue)
+![Status](https://img.shields.io/badge/Status-100%25%20Conclu%C3%ADdo-success)
 
-Projeto simples de uma Agenda de Contatos (CRUD completo) desenvolvido para fins de estudo, focado em praticar a integração entre um backend Node.js e um frontend Vue.js.
-
-## 🛠️ Tecnologias Utilizadas
-
-Este projeto é dividido em duas partes principais:
-
-### 🏛️ Backend (Pasta Raiz)
-* **Node.js**
-* **TypeScript**
-* **Express.js**: Para criação do servidor e das rotas da API REST.
-* **MySQL**: Banco de dados relacional.
-* **Knex.js**: Query Builder do SQL e gerenciador de Migrations.
-* **CORS**: Para permitir a comunicação com o frontend.
-
-### 🎨 Frontend (Pasta `/frontend`)
-* **Vue.js 3**: (Composition API e `<script setup>`)
-* **TypeScript**
-* **Vite**: Ferramenta de build e servidor de desenvolvimento.
-* **Axios**: Para fazer as requisições HTTP para o backend.
+Este projeto é um *Mínimo Produto Viável* (MVP) de uma aplicação Fullstack, desenvolvida para gerenciar uma lista simples de contatos. Ele demonstra a **integração completa e funcional** de um Backend em Node.js com um Frontend em Vue.js, focando nas operações CRUD.
 
 ---
 
-## ✨ Funcionalidades Principais
+## ⚙️ Tecnologias Utilizadas
 
-* [✅] Listar todos os contatos cadastrados.
-* [✅] Adicionar um novo contato (Nome, Email, Telefone).
-* [✅] Editar as informações de um contato existente.
-* [✅] Remover um contato da agenda.
+| Módulo | Tecnologias | Descrição |
+| :--- | :--- | :--- |
+| **Backend** | Node.js, Express, TypeScript, Knex.js | Servidor RESTful com tipagem forte e Knex para manipulação de dados (CRUD completo). |
+| **Banco de Dados** | MySQL | Banco de dados relacional para persistência de dados. |
+| **Frontend** | Vue.js 3, TypeScript, Axios, **Vite** | Interface reativa que consome as rotas da API (Formulário e Listagem). |
 
 ---
 
 ## 🚀 Como Rodar o Projeto
 
-Você precisará de dois terminais abertos: um para o Backend e outro para o Frontend.
+Você precisará de dois terminais abertos simultaneamente: um para o Backend (API) e um para o Frontend (UI).
 
-**Pré-requisitos:**
-* [Node.js](https://nodejs.org/en/) (v18+)
-* [MySQL](https://www.mysql.com/) (ou um container Docker com MySQL)
-* Um gerenciador de pacotes (NPM, que já vem com o Node).
+### 1. Pré-requisitos
+* [Node.js](https://nodejs.org/) (v18+ recomendado)
+* [MySQL Server](https://www.mysql.com/)
 
-### 1. Clonar o Repositório
+### 2. Configuração e Migrações (Executar na Pasta Raiz)
+
+1.  Crie o banco de dados vazio chamado `agenda_db` no seu MySQL.
+2.  Instale as dependências do Backend:
+    ```bash
+    npm install
+    ```
+3.  Execute as migrações (criação da tabela `contacts`):
+    ```bash
+    npx knex migrate:latest
+    ```
+
+### 3. Iniciando o Backend (API)
+
+Inicie o servidor Node/Express para a API (porta `3000`):
+
 ```bash
-git clone [https://github.com/edsonxjr/agenda_mvp.git](https://github.com/edsonxjr/agenda_mvp.git)
-cd agenda_mvp
+npm run dev
