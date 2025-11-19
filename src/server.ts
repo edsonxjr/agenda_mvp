@@ -1,6 +1,5 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
-// 1. IMPORTANTE: Importa a conexão do banco
 import knex from './database/index';
 
 const app = express();
@@ -22,7 +21,7 @@ app.get('/api/contacts', async (req: Request, res: Response) => {
   return res.json(contacts);
 });
 
-// ROTA [POST] - Criar contato (A que estamos fazendo agora)
+// ROTA [POST] - Criar contato 
 app.post('/api/contacts', async (request: Request, response: Response) => {
   try {
     // 1. Pega os dados do corpo da requisição
@@ -43,6 +42,38 @@ app.post('/api/contacts', async (request: Request, response: Response) => {
     return response.status(500).json({ message: 'Erro ao cadastrar contato.' });
   }
 });
+
+app.put('/api/contacts/:id', async (request: Request, response: Response) => {
+  try {
+    const { id } = request.params
+
+    const { name, email, phone } = request.body
+
+    await knex('contacts').where('id', id).update({
+      name,
+      email,
+      phone
+    })
+    return response.json({ message: 'Contato atualizado!' })
+
+  } catch (error) {
+    console.log(error)
+    return response.status(500).json({ message: 'Erro ao atulizar contato.' })
+  }
+})
+
+app.delete('/api/contacts/:id', async (request: Request, response: Response) => {
+  try {
+    const { id } = request.params
+
+    await knex('contacts').where('id', id).del()
+
+    return response.status(204).send()
+  } catch (error) {
+    console.log(error)
+    return response.status(600).json({ massage: 'Erro ao deletar contato.' })
+  }
+})
 
 app.listen(port, () => {
   console.log(`🚀 Servidor backend rodando na porta ${port}`);
