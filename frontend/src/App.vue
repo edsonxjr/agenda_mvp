@@ -6,20 +6,8 @@ import ContactList from './components/ContactList.vue';
 
 <template>
   <main>
-    <h1>Agenda MVP (Frontend)</h1>
-    
-    <ContactForm /> 
-    
-    <ContactList />
   </main>
 </template>
 
 <style scoped>
-main {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 20px;
-  font-family: sans-serif;
-}
-/* Estilos globais (opcional) */
 </style>
