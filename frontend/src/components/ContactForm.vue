@@ -81,6 +81,40 @@ h2{
   gap: 20px;
 }
 
+.input-group {
+  margin-bottom: 15px;
+  flex-grow: 1;
+}
 
+label{
+  display: block;
+  font-weight: 600;
+  color: #64748b
+}
+
+input{
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  box-sizing: border-box;
+}
+
+input:focus {
+  border-color: #10b981;
+}
+.btn-save {
+  width: 100%;
+  background-color: #10b981;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: bold;
+  font-size: 15px;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: background 0.2s;
+}
+.btn-save:hover { background-color: #059669;}
 
 </style>
