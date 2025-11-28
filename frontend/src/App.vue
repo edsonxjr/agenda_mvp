@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import ContactForm from './components/ContactForm.vue';
-import ContactList from './components/ContactList.vue'; 
+import { RouterLink, RouterView } from 'vue-router'
 </script>
 
 <template>
