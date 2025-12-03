@@ -75,6 +75,20 @@ app.delete('/api/contacts/:id', async (request: Request, response: Response) => 
   }
 })
 
+app.get('/api/contacts/:id', async (request: Request, response: Response) => {
+  try {
+    const { id } = request.params
+    const contact = await knex('contact').where('id', id).first()
+
+    if (!contact) {
+      return response.status(404).json({ massage: 'Contato não encontado'})
+    }
+    return response.json(contact)
+  }catch (error) {
+    return response.status(500).json({ massage: 'Erro ao buscar'})
+  }
+})
+
 app.listen(port, () => {
   console.log(`🚀 Servidor backend rodando na porta ${port}`);
 });
