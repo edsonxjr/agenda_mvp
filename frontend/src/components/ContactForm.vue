@@ -29,6 +29,7 @@ const handleSubmit = async () => {
 </script>
 
 <template>
+  
   <div class="form-card">
     <h2>Novo Contato</h2>
     
