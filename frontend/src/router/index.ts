@@ -24,7 +24,13 @@ routes: [
         path: '/novo-contato',
         name: 'add',
         component: AddContactView
+    },
+    {
+        path: '/editar/:id',
+        name: 'edit',
+        component: () => import('../views/EditContactView.vue')
     }
+    
     
 ]
 })
