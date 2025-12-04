@@ -1,30 +1,43 @@
 <script setup lang="ts">
-interface Contact {
-  id: number;
-  name: string;
-  email: string;
-  phone: string;
-}
+interface Contact { id: number; name: string; email: string; phone: string; }
 
 import { ref, computed, onMounted } from 'vue';
 import axios from 'axios';
-import { useRouter } from 'vue-router'; // Importar router para navegação
+import BaseModal from './BaseModal.vue';     // O Modal Genérico
+import ContactForm from './ContactForm.vue'; // O Super Formulário
 
-const router = useRouter(); // Instancia o router
 const API_URL = 'http://localhost:3000/api/contacts';
 const contacts = ref<Contact[]>([]);
 const searchTerm = ref('');
 
-// --- Filtro de busca ---
+// Controle do Modal
+const showModal = ref(false);
+const editingId = ref<number | undefined>(undefined);
+
+// --- AÇÕES DO MODAL ---
+const openCreate = () => {
+  editingId.value = undefined; // Sem ID = Criar
+  showModal.value = true;
+}
+
+const openEdit = (id: number) => {
+  editingId.value = id; // Com ID = Editar
+  showModal.value = true;
+}
+
+const handleSuccess = () => {
+  showModal.value = false;
+  fetchContacts(); // Recarrega a lista para mostrar a mudança
+}
+
+// --- Busca e Filtros (Seu código original) ---
 const filteredContacts = computed(() => {
-  if (searchTerm.value === '') return contacts.value;
-  return contacts.value.filter(contact =>
-    contact.name.toLowerCase().includes(searchTerm.value.toLowerCase()) ||
-    contact.email.toLowerCase().includes(searchTerm.value.toLowerCase())
+  if (!searchTerm.value) return contacts.value;
+  return contacts.value.filter(c =>
+    c.name.toLowerCase().includes(searchTerm.value.toLowerCase())
   );
 });
 
-// --- Busca Inicial ---
 const fetchContacts = async () => {
   try {
     const response = await axios.get(API_URL);
@@ -32,86 +45,75 @@ const fetchContacts = async () => {
   } catch (error) { console.error(error); }
 };
 
-// --- Iniciais do Nome ---
-const getInitials = (name: string) => {
-  if (!name) return '?';
-  const parts = name.trim().split(' ').filter(part => part.length > 0);
-
-  if (parts.length >= 2) {
-    const first = parts[0]?.[0] || '';
-    const second = parts[1]?.[0] || '';
-    return (first + second).toUpperCase();
-  }
-
-  return name.substring(0, 2).toUpperCase();
-}
-
-// --- Deletar ---
 const deleteContact = async (id: number) => {
   if (!confirm('Tem certeza?')) return;
   try {
     await axios.delete(`${API_URL}/${id}`);
     contacts.value = contacts.value.filter(c => c.id !== id);
-  } catch (error) { alert('Erro ao deletar'); }
+  } catch (e) { alert('Erro ao deletar'); }
 };
 
-// --- Navegar para Edição (CORRIGIDO AQUI) ---
-const editContact = (id: number) => {
-  // Uso correto de crases (backticks) para inserir a variável
-  router.push(`/editar/${id}`);
+const getInitials = (name?: string | null) => {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    const a = parts[0]?.[0] ?? '';
+    const b = parts[1]?.[0] ?? '';
+    return (a + b).toUpperCase() || '?';
+  }
+  return (name.trim().substring(0, 2) || '?').toUpperCase();
 }
 
-onMounted(() => { fetchContacts(); });
+
+onMounted(() => fetchContacts());
 </script>
 
 <template>
   <div class="container">
-
     <div class="header">
       <h2>Meus Contatos</h2>
       <p>{{ contacts.length }} contatos salvos</p>
     </div>
 
     <div class="actions-bar">
-
       <div class="search-pill">
         <span class="search-icon">🔍</span>
         <input type="text" placeholder="Buscar..." v-model="searchTerm">
         <button class="btn-search-inside">Busca</button>
       </div>
 
-      <RouterLink to="/novo-contato" class="btn-add">
+      <button class="btn-add" @click="openCreate">
         + Novo
-      </RouterLink>
-
+      </button>
     </div>
 
     <div class="contact-list">
-      <p v-if="filteredContacts.length === 0" class="empty-msg">
-        Nenhum contato encontrado.
-      </p>
+      <p v-if="filteredContacts.length === 0" class="empty-msg">Nenhum contato.</p>
 
       <div v-for="contact in filteredContacts" :key="contact.id" class="card">
         <div class="avatar">{{ getInitials(contact.name) }}</div>
-
         <div class="info">
           <h3>{{ contact.name }}</h3>
           <span class="email">{{ contact.email }}</span>
           <span class="phone">{{ contact.phone }}</span>
         </div>
-
         <div class="actions">
-          <button class="icon-btn edit" @click="editContact(contact.id)">✏️</button>
+          <button class="icon-btn edit" @click="openEdit(contact.id)">✏️</button>
           <button class="icon-btn delete" @click="deleteContact(contact.id)">🗑️</button>
         </div>
       </div>
     </div>
 
+    <BaseModal v-if="showModal" @close="showModal = false">
+      <ContactForm :id="editingId" @close="showModal = false" @saved="handleSuccess" />
+    </BaseModal>
+
   </div>
 </template>
 
 <style scoped>
-/* Container e Header */
+/* (Mantenha o seu CSS anterior aqui, ele está perfeito) */
+/* Só adicione/garanta que o botão .btn-add tenha cursor pointer */
 .container {
   font-family: 'Segoe UI', sans-serif;
   color: #333;
@@ -136,7 +138,6 @@ onMounted(() => { fetchContacts(); });
   font-size: 14px;
 }
 
-/* Barra de Ações */
 .actions-bar {
   display: flex;
   justify-content: center;
@@ -145,7 +146,6 @@ onMounted(() => { fetchContacts(); });
   margin-bottom: 30px;
 }
 
-/* Cápsula de Busca */
 .search-pill {
   display: flex;
   align-items: center;
@@ -155,19 +155,6 @@ onMounted(() => { fetchContacts(); });
   padding: 4px;
   width: 500px;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.02);
-  transition: box-shadow 0.2s;
-}
-
-.search-pill:focus-within {
-  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.15);
-  border-color: #bfdbfe;
-}
-
-.search-icon {
-  padding-left: 15px;
-  font-size: 16px;
-  color: #94a3b8;
-  pointer-events: none;
 }
 
 .search-pill input {
@@ -180,6 +167,10 @@ onMounted(() => { fetchContacts(); });
   color: #333;
 }
 
+.search-icon {
+  padding-left: 15px;
+}
+
 .btn-search-inside {
   background-color: #2563eb;
   color: white;
@@ -187,37 +178,26 @@ onMounted(() => { fetchContacts(); });
   padding: 10px 24px;
   border-radius: 30px;
   font-weight: 600;
-  font-size: 14px;
   cursor: pointer;
-  transition: all 0.2s ease;
 }
 
-.btn-search-inside:hover {
-  background-color: #1d4ed8;
-  transform: scale(1.05);
-}
-
-/* Botão Novo */
 .btn-add {
   background-color: #10b981;
   color: white;
-  text-decoration: none;
+  border: none;
   padding: 10px 20px;
   border-radius: 30px;
   font-weight: 600;
   font-size: 14px;
-  white-space: nowrap;
+  cursor: pointer;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-  transition: all 0.2s ease;
+  transition: transform 0.2s;
 }
 
 .btn-add:hover {
-  background-color: #059669;
   transform: scale(1.05);
-  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);
 }
 
-/* Cards */
 .contact-list {
   display: flex;
   flex-direction: column;
@@ -233,11 +213,6 @@ onMounted(() => { fetchContacts(); });
   padding: 15px;
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  transition: transform 0.1s;
-}
-
-.card:hover {
-  transform: translateY(-2px);
 }
 
 .avatar {
@@ -279,11 +254,5 @@ onMounted(() => { fetchContacts(); });
 .icon-btn:hover {
   background-color: #f1f5f9;
   border-radius: 4px;
-}
-
-.empty-msg {
-  text-align: center;
-  color: #94a3b8;
-  margin-top: 20px;
 }
 </style>
