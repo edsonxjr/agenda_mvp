@@ -10,84 +10,76 @@ app.use(cors());
 
 // --- ROTAS ---
 
-// Rota de Teste
+// Teste inicial
 app.get('/', (req: Request, res: Response) => {
   return res.json({ message: 'API da Agenda está rodando!' });
 });
 
-// ROTA [GET] - Listar contatos
+// Listar todos
 app.get('/api/contacts', async (req: Request, res: Response) => {
   const contacts = await knex('contacts').select('*');
   return res.json(contacts);
 });
 
-// ROTA [POST] - Criar contato 
+// Criar novo
 app.post('/api/contacts', async (request: Request, response: Response) => {
   try {
-    // 1. Pega os dados do corpo da requisição
     const { name, email, phone } = request.body;
 
-    // 2. Insere no banco de dados
-    await knex('contacts').insert({
-      name,
-      email,
-      phone
-    });
+    await knex('contacts').insert({ name, email, phone });
 
-    // 3. Responde com sucesso (201 = Criado)
     return response.status(201).json({ message: 'Contato criado com sucesso!' });
-
   } catch (error) {
     console.log(error);
     return response.status(500).json({ message: 'Erro ao cadastrar contato.' });
   }
 });
 
+// Atualizar
 app.put('/api/contacts/:id', async (request: Request, response: Response) => {
   try {
-    const { id } = request.params
+    const { id } = request.params;
+    const { name, email, phone } = request.body;
 
-    const { name, email, phone } = request.body
-
-    await knex('contacts').where('id', id).update({
-      name,
-      email,
-      phone
-    })
-    return response.json({ message: 'Contato atualizado!' })
-
+    await knex('contacts').where('id', id).update({ name, email, phone });
+    
+    return response.json({ message: 'Contato atualizado!' });
   } catch (error) {
-    console.log(error)
-    return response.status(500).json({ message: 'Erro ao atulizar contato.' })
+    console.log(error);
+    return response.status(500).json({ message: 'Erro ao atualizar contato.' });
   }
-})
+});
 
+// Deletar
 app.delete('/api/contacts/:id', async (request: Request, response: Response) => {
   try {
-    const { id } = request.params
+    const { id } = request.params;
 
-    await knex('contacts').where('id', id).del()
+    await knex('contacts').where('id', id).del();
 
-    return response.status(204).send()
+    return response.status(204).send();
   } catch (error) {
-    console.log(error)
-    return response.status(600).json({ massage: 'Erro ao deletar contato.' })
+    console.log(error);
+    return response.status(500).json({ message: 'Erro ao deletar contato.' });
   }
-})
+});
 
+// Buscar um (Pelo ID)
 app.get('/api/contacts/:id', async (request: Request, response: Response) => {
   try {
-    const { id } = request.params
-    const contact = await knex('contact').where('id', id).first()
+    const { id } = request.params;
+    
+    const contact = await knex('contacts').where('id', id).first();
 
     if (!contact) {
-      return response.status(404).json({ massage: 'Contato não encontado'})
+      return response.status(404).json({ message: 'Contato não encontrado' });
     }
-    return response.json(contact)
-  }catch (error) {
-    return response.status(500).json({ massage: 'Erro ao buscar'})
+    
+    return response.json(contact);
+  } catch (error) {
+    return response.status(500).json({ message: 'Erro ao buscar' });
   }
-})
+});
 
 app.listen(port, () => {
   console.log(`🚀 Servidor backend rodando na porta ${port}`);
