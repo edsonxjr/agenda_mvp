@@ -8,14 +8,14 @@ interface Contact {
 
 import { ref, computed, onMounted } from 'vue';
 import axios from 'axios';
-import { useRouter } from 'vue-router'; // Importar router para o botão de editar
+import { useRouter } from 'vue-router'; // Importar router para navegação
 
 const router = useRouter(); // Instancia o router
 const API_URL = 'http://localhost:3000/api/contacts';
 const contacts = ref<Contact[]>([]);
 const searchTerm = ref('');
 
-// Filtro de busca
+// --- Filtro de busca ---
 const filteredContacts = computed(() => {
   if (searchTerm.value === '') return contacts.value;
   return contacts.value.filter(contact =>
@@ -24,6 +24,7 @@ const filteredContacts = computed(() => {
   );
 });
 
+// --- Busca Inicial ---
 const fetchContacts = async () => {
   try {
     const response = await axios.get(API_URL);
@@ -31,6 +32,7 @@ const fetchContacts = async () => {
   } catch (error) { console.error(error); }
 };
 
+// --- Iniciais do Nome ---
 const getInitials = (name: string) => {
   if (!name) return '?';
   const parts = name.trim().split(' ').filter(part => part.length > 0);
@@ -44,6 +46,7 @@ const getInitials = (name: string) => {
   return name.substring(0, 2).toUpperCase();
 }
 
+// --- Deletar ---
 const deleteContact = async (id: number) => {
   if (!confirm('Tem certeza?')) return;
   try {
@@ -52,8 +55,9 @@ const deleteContact = async (id: number) => {
   } catch (error) { alert('Erro ao deletar'); }
 };
 
-// Função para navegar para edição
+// --- Navegar para Edição (CORRIGIDO AQUI) ---
 const editContact = (id: number) => {
+  // Uso correto de crases (backticks) para inserir a variável
   router.push(`/editar/${id}`);
 }
 
@@ -72,12 +76,8 @@ onMounted(() => { fetchContacts(); });
 
       <div class="search-pill">
         <span class="search-icon">🔍</span>
-
         <input type="text" placeholder="Buscar..." v-model="searchTerm">
-
-        <button class="btn-search-inside">
-          Busca
-        </button>
+        <button class="btn-search-inside">Busca</button>
       </div>
 
       <RouterLink to="/novo-contato" class="btn-add">
@@ -136,11 +136,10 @@ onMounted(() => { fetchContacts(); });
   font-size: 14px;
 }
 
-/* --- BARRA DE AÇÕES --- */
+/* Barra de Ações */
 .actions-bar {
   display: flex;
   justify-content: center;
-  /* Centraliza tudo */
   align-items: center;
   gap: 10px;
   margin-bottom: 30px;
@@ -155,7 +154,6 @@ onMounted(() => { fetchContacts(); });
   border-radius: 50px;
   padding: 4px;
   width: 500px;
-  /* Largura fixa */
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.02);
   transition: box-shadow 0.2s;
 }
@@ -165,7 +163,6 @@ onMounted(() => { fetchContacts(); });
   border-color: #bfdbfe;
 }
 
-/* IMPORTANTE: Adicionei o CSS da lupa de volta */
 .search-icon {
   padding-left: 15px;
   font-size: 16px;
@@ -183,7 +180,6 @@ onMounted(() => { fetchContacts(); });
   color: #333;
 }
 
-/* Botão Azul Dentro */
 .btn-search-inside {
   background-color: #2563eb;
   color: white;
@@ -194,7 +190,6 @@ onMounted(() => { fetchContacts(); });
   font-size: 14px;
   cursor: pointer;
   transition: all 0.2s ease;
-  /* Adicionei transition all */
 }
 
 .btn-search-inside:hover {
@@ -202,10 +197,9 @@ onMounted(() => { fetchContacts(); });
   transform: scale(1.05);
 }
 
-/* Botão Novo Fora */
+/* Botão Novo */
 .btn-add {
   background-color: #10b981;
-  /* Verde */
   color: white;
   text-decoration: none;
   padding: 10px 20px;
@@ -220,7 +214,6 @@ onMounted(() => { fetchContacts(); });
 .btn-add:hover {
   background-color: #059669;
   transform: scale(1.05);
-  /* Efeito de crescer */
   box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);
 }
 
