@@ -81,6 +81,27 @@ app.get('/api/contacts/:id', async (request: Request, response: Response) => {
   }
 });
 
+app.post('/api/contacts', async (request: Request, response: Response) => {
+  try {
+    const { name, email, phone } = request.body;
+
+    
+    const emailExists = await knex('contacts').where('email', email).first();
+
+    if (emailExists) {
+      return response.status(409).json({ message: 'Este e-mail já está cadastrado.' });
+    }
+    await knex('contacts').insert({
+      name,
+      email,
+      phone
+    });
+    return response.status(201).json({ message: 'Contato criado com sucesso!' });
+  } catch (error) {
+    console.log(error);
+    return response.status(500).json({ message: 'Erro ao cadastrar contato.' });
+  }
+});
 app.listen(port, () => {
   console.log(`🚀 Servidor backend rodando na porta ${port}`);
 });
