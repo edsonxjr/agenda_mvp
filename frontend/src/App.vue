@@ -4,19 +4,9 @@ import { RouterLink, RouterView } from 'vue-router'
 
 <template>
   <div class="layout">
-
-    <header>
-      <nav>
-        <RouterLink to="/">🏠 Home</RouterLink>
-        <RouterLink to="/meus-contatos">📋 Lista</RouterLink>
-        <RouterLink to="/novo-contato">➕ Novo</RouterLink>
-      </nav>
-    </header>
-
     <div class="page-content">
       <RouterView />
     </div>
-
   </div>
 </template>
 
