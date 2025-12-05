@@ -1,9 +1,15 @@
+import { email, z } from 'zod';
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import knex from './database/index';
 
 const app = express();
 const port = 3000;
+const contactSchema = z.object({
+  name: z.string().min(3, 'O nome deve tee pelo menos 3 letras'),
+  email: z.string().email('Formato de e-mail invalido'),
+  phone: z.string().regex(/^\d{10,11}$/, 'O telefone deve ter 10 ou 11 números (apenas dígitos)')
+})
 
 app.use(express.json());
 app.use(cors());
@@ -24,12 +30,16 @@ app.get('/api/contacts', async (req: Request, res: Response) => {
 // Criar novo
 app.post('/api/contacts', async (request: Request, response: Response) => {
   try {
-    const { name, email, phone } = request.body;
+    const data = contactSchema.parse(request.body);
+    const { name, email, phone } = data;
 
     await knex('contacts').insert({ name, email, phone });
 
     return response.status(201).json({ message: 'Contato criado com sucesso!' });
-  } catch (error) {
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return response.status(400).json({ message: error.issues[0].message })
+    }
     console.log(error);
     return response.status(500).json({ message: 'Erro ao cadastrar contato.' });
   }
@@ -42,7 +52,7 @@ app.put('/api/contacts/:id', async (request: Request, response: Response) => {
     const { name, email, phone } = request.body;
 
     await knex('contacts').where('id', id).update({ name, email, phone });
-    
+
     return response.json({ message: 'Contato atualizado!' });
   } catch (error) {
     console.log(error);
@@ -68,13 +78,13 @@ app.delete('/api/contacts/:id', async (request: Request, response: Response) => 
 app.get('/api/contacts/:id', async (request: Request, response: Response) => {
   try {
     const { id } = request.params;
-    
+
     const contact = await knex('contacts').where('id', id).first();
 
     if (!contact) {
       return response.status(404).json({ message: 'Contato não encontrado' });
     }
-    
+
     return response.json(contact);
   } catch (error) {
     return response.status(500).json({ message: 'Erro ao buscar' });
@@ -85,7 +95,7 @@ app.post('/api/contacts', async (request: Request, response: Response) => {
   try {
     const { name, email, phone } = request.body;
 
-    
+
     const emailExists = await knex('contacts').where('email', email).first();
 
     if (emailExists) {
