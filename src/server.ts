@@ -45,16 +45,45 @@ app.post('/api/contacts', async (request: Request, response: Response) => {
   }
 });
 
-// Atualizar
 app.put('/api/contacts/:id', async (request: Request, response: Response) => {
   try {
     const { id } = request.params;
-    const { name, email, phone } = request.body;
+    
+    // Valida o formato dos dados com Zod
+    const data = contactSchema.parse(request.body);
+    const { name, email, phone } = data;
 
+    // Verifica se e-mail já existe em OUTRO contato
+    const emailExists = await knex('contacts')
+      .where('email', email)
+      .whereNot('id', id) // Importante: ignora o próprio usuário na busca
+      .first();
+
+    if (emailExists) {
+      return response.status(409).json({ message: 'Este e-mail já está em uso por outro contato.' });
+    }
+
+    // Verifica se telefone já existe em OUTRO contato
+    const phoneExists = await knex('contacts')
+      .where('phone', phone)
+      .whereNot('id', id)
+      .first();
+
+    if (phoneExists) {
+      return response.status(409).json({ message: 'Este telefone já está em uso por outro contato.' });
+    }
+
+    // Atualiza no banco
     await knex('contacts').where('id', id).update({ name, email, phone });
-
+    
     return response.json({ message: 'Contato atualizado!' });
-  } catch (error) {
+
+  } catch (error: any) {
+    // Captura erros de validação (Zod)
+    if (error instanceof z.ZodError) {
+      return response.status(400).json({ message: error.issues[0].message });
+    }
+    
     console.log(error);
     return response.status(500).json({ message: 'Erro ao atualizar contato.' });
   }
