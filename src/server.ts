@@ -11,11 +11,20 @@ app.use(cors());
 
 // --- SCHEMAS DE VALIDAÇÃO (ZOD) ---
 
-// 1. Validação dos Dados do Contato
+// 1. Validação dos Dados do Contato (Com Sanitização)
 const contactSchema = z.object({
-  name: z.string().min(3, 'O nome deve ter pelo menos 3 letras'),
-  email: z.string().email('Formato de e-mail inválido'),
-  phone: z.string().regex(/^\d{10,11}$/, 'O telefone deve ter 10 ou 11 números (apenas dígitos)')
+  name: z.string()
+    .trim() // Limpa espaços no começo/fim
+    .min(3, 'O nome deve ter pelo menos 3 letras'),
+    
+  email: z.string()
+    .trim()
+    .toLowerCase() // Força minúsculo para padronizar
+    .email('Formato de e-mail inválido'),
+    
+  phone: z.string()
+    .trim()
+    .regex(/^\d{10,11}$/, 'O telefone deve ter 10 ou 11 números (apenas dígitos)')
 });
 
 // 2. Validação de ID (para rotas GET/:id, PUT/:id, DELETE/:id)
@@ -36,10 +45,10 @@ app.get('/api/contacts', async (req: Request, res: Response) => {
   return res.json(contacts);
 });
 
-// ROTA [POST] - Criar novo (Completa: Zod + Verificação de Duplicidade)
+// ROTA [POST] - Criar novo
 app.post('/api/contacts', async (request: Request, response: Response) => {
   try {
-    // 1. Validação Zod (Formato)
+    // 1. Validação Zod (Formato + Limpeza)
     const data = contactSchema.parse(request.body);
     const { name, email, phone } = data;
 
@@ -61,7 +70,6 @@ app.post('/api/contacts', async (request: Request, response: Response) => {
     return response.status(201).json({ message: 'Contato criado com sucesso!' });
 
   } catch (error: any) {
-    // Erro do Zod
     if (error instanceof z.ZodError) {
       return response.status(400).json({ message: error.issues[0].message });
     }
@@ -70,7 +78,7 @@ app.post('/api/contacts', async (request: Request, response: Response) => {
   }
 });
 
-// ROTA [PUT] - Atualizar (Completa: Valida ID + Zod + Duplicidade)
+// ROTA [PUT] - Atualizar
 app.put('/api/contacts/:id', async (request: Request, response: Response) => {
   try {
     // Valida se ID é número
@@ -115,7 +123,7 @@ app.put('/api/contacts/:id', async (request: Request, response: Response) => {
   }
 });
 
-// ROTA [DELETE] - Deletar (Com validação de ID)
+// ROTA [DELETE] - Deletar
 app.delete('/api/contacts/:id', async (request: Request, response: Response) => {
   try {
     const { id } = idSchema.parse(request.params);
@@ -132,7 +140,7 @@ app.delete('/api/contacts/:id', async (request: Request, response: Response) => 
   }
 });
 
-// ROTA [GET ÚNICO] - Buscar um (Com validação de ID)
+// ROTA [GET ÚNICO] - Buscar um
 app.get('/api/contacts/:id', async (request: Request, response: Response) => {
   try {
     const { id } = idSchema.parse(request.params);
