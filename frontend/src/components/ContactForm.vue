@@ -5,7 +5,7 @@ import axios from 'axios';
 const props = defineProps<{ id?: number }>();
 const emit = defineEmits(['close', 'saved']);
 
-const API_URL = 'http://localhost:3000/api/contacts';
+const API_URL = import.meta.env.VITE_API_URL;
 
 const formData = ref({ name: '', email: '', phone: '' });
 const isEditing = ref(false);
