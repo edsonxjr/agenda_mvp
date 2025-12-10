@@ -6,7 +6,7 @@ import axios from 'axios';
 import BaseModal from './BaseModal.vue';     // O Modal Genérico
 import ContactForm from './ContactForm.vue'; // O Super Formulário
 
-const API_URL = 'http://localhost:3000/api/contacts';
+const API_URL = import.meta.env.VITE_API_URL;
 const contacts = ref<Contact[]>([]);
 const searchTerm = ref('');
 
