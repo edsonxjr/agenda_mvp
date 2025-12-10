@@ -160,6 +160,8 @@ app.get('/api/contacts/:id', async (request: Request, response: Response) => {
   }
 });
 
+const PORT = process.env.PORT || 3000;
+
 app.listen(port, () => {
   console.log(`🚀 Servidor backend rodando na porta ${port}`);
 });
