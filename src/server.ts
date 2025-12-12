@@ -4,7 +4,6 @@ import { z } from 'zod';
 import knex from './database/index';
 
 const app = express();
-const port = 3000;
 
 app.use(express.json());
 app.use(cors());
@@ -14,12 +13,12 @@ app.use(cors());
 // 1. Validação dos Dados do Contato (Com Sanitização)
 const contactSchema = z.object({
   name: z.string()
-    .trim() // Limpa espaços no começo/fim
+    .trim()
     .min(3, 'O nome deve ter pelo menos 3 letras'),
     
   email: z.string()
     .trim()
-    .toLowerCase() // Força minúsculo para padronizar
+    .toLowerCase()
     .email('Formato de e-mail inválido'),
     
   phone: z.string()
@@ -27,9 +26,11 @@ const contactSchema = z.object({
     .regex(/^\d{10,11}$/, 'O telefone deve ter 10 ou 11 números (apenas dígitos)')
 });
 
-// 2. Validação de ID (para rotas GET/:id, PUT/:id, DELETE/:id)
+// 2. Validação de ID (Blindada com Regex)
 const idSchema = z.object({
-  id: z.coerce.number().positive('O ID deve ser um número positivo')
+  id: z.string()
+    .regex(/^\d+$/, 'ID inválido. Deve ser um número.') // 1. Verifica se são dígitos
+    .transform(Number) // 2. Transforma em número
 });
 
 // --- ROTAS ---
@@ -48,23 +49,22 @@ app.get('/api/contacts', async (req: Request, res: Response) => {
 // ROTA [POST] - Criar novo
 app.post('/api/contacts', async (request: Request, response: Response) => {
   try {
-    // 1. Validação Zod (Formato + Limpeza)
+    // 1. Validação Zod
     const data = contactSchema.parse(request.body);
     const { name, email, phone } = data;
 
-    // 2. Validação de Integridade (Duplicidade de E-mail)
+    // 2. Integridade (E-mail)
     const emailExists = await knex('contacts').where('email', email).first();
     if (emailExists) {
       return response.status(409).json({ message: 'Este e-mail já está cadastrado.' });
     }
 
-    // 3. Validação de Integridade (Duplicidade de Telefone)
+    // 3. Integridade (Telefone)
     const phoneExists = await knex('contacts').where('phone', phone).first();
     if (phoneExists) {
       return response.status(409).json({ message: 'Este telefone já está cadastrado.' });
     }
 
-    // 4. Inserção
     await knex('contacts').insert({ name, email, phone });
 
     return response.status(201).json({ message: 'Contato criado com sucesso!' });
@@ -78,17 +78,19 @@ app.post('/api/contacts', async (request: Request, response: Response) => {
   }
 });
 
+
+
 // ROTA [PUT] - Atualizar
 app.put('/api/contacts/:id', async (request: Request, response: Response) => {
   try {
-    // Valida se ID é número
+    // Valida ID
     const { id } = idSchema.parse(request.params);
     
-    // Valida o formato dos dados com Zod
+    // Valida Body
     const data = contactSchema.parse(request.body);
     const { name, email, phone } = data;
 
-    // Verifica duplicidade de E-mail (excluindo o próprio ID)
+    // Verifica E-mail (excluindo o próprio ID)
     const emailExists = await knex('contacts')
       .where('email', email)
       .whereNot('id', id)
@@ -98,7 +100,7 @@ app.put('/api/contacts/:id', async (request: Request, response: Response) => {
       return response.status(409).json({ message: 'Este e-mail já está em uso por outro contato.' });
     }
 
-    // Verifica duplicidade de Telefone (excluindo o próprio ID)
+    // Verifica Telefone (excluindo o próprio ID)
     const phoneExists = await knex('contacts')
       .where('phone', phone)
       .whereNot('id', id)
@@ -108,7 +110,6 @@ app.put('/api/contacts/:id', async (request: Request, response: Response) => {
       return response.status(409).json({ message: 'Este telefone já está em uso por outro contato.' });
     }
 
-    // Atualiza no banco
     await knex('contacts').where('id', id).update({ name, email, phone });
     
     return response.json({ message: 'Contato atualizado!' });
@@ -133,7 +134,7 @@ app.delete('/api/contacts/:id', async (request: Request, response: Response) => 
     return response.status(204).send();
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return response.status(400).json({ message: 'ID inválido.' });
+      return response.status(400).json({ message: error.issues[0].message });
     }
     console.log(error);
     return response.status(500).json({ message: 'Erro ao deletar contato.' });
@@ -154,14 +155,16 @@ app.get('/api/contacts/:id', async (request: Request, response: Response) => {
     return response.json(contact);
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return response.status(400).json({ message: 'ID inválido.' });
+      return response.status(400).json({ message: error.issues[0].message });
     }
     return response.status(500).json({ message: 'Erro ao buscar' });
   }
 });
 
+// --- SERVIDOR ---
+// Usa a variável de ambiente PORT (necessário para deploy) ou 3000 (local)
 const PORT = process.env.PORT || 3000;
 
-app.listen(port, () => {
-  console.log(`🚀 Servidor backend rodando na porta ${port}`);
+app.listen(PORT, () => {
+  console.log(`🚀 Servidor backend rodando na porta ${PORT}`);
 });
