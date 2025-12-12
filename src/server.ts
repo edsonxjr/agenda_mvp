@@ -10,7 +10,7 @@ app.use(cors());
 
 // --- SCHEMAS DE VALIDAÇÃO (ZOD) ---
 
-// 1. Validação dos Dados do Contato (Com Sanitização)
+// 1. Validação dos Dados do Contato 
 const contactSchema = z.object({
   name: z.string()
     .trim()
@@ -23,7 +23,9 @@ const contactSchema = z.object({
     
   phone: z.string()
     .trim()
-    .regex(/^\d{10,11}$/, 'O telefone deve ter 10 ou 11 números (apenas dígitos)')
+    .regex(/^\d{10,11}$/, 'O telefone deve ter 10 ou 11 números (apenas dígitos)'),
+
+    is_favorite: z.boolean().optional()
 });
 
 // 2. Validação de ID (Blindada com Regex)
@@ -51,7 +53,7 @@ app.post('/api/contacts', async (request: Request, response: Response) => {
   try {
     // 1. Validação Zod
     const data = contactSchema.parse(request.body);
-    const { name, email, phone } = data;
+    const { name, email, phone, is_favorite } = data;
 
     // 2. Integridade (E-mail)
     const emailExists = await knex('contacts').where('email', email).first();
@@ -65,7 +67,7 @@ app.post('/api/contacts', async (request: Request, response: Response) => {
       return response.status(409).json({ message: 'Este telefone já está cadastrado.' });
     }
 
-    await knex('contacts').insert({ name, email, phone });
+    await knex('contacts').insert({ name, email, phone, is_favorite });
 
     return response.status(201).json({ message: 'Contato criado com sucesso!' });
 
@@ -88,7 +90,7 @@ app.put('/api/contacts/:id', async (request: Request, response: Response) => {
     
     // Valida Body
     const data = contactSchema.parse(request.body);
-    const { name, email, phone } = data;
+    const { name, email, phone, is_favorite } = data;
 
     // Verifica E-mail (excluindo o próprio ID)
     const emailExists = await knex('contacts')
@@ -110,7 +112,7 @@ app.put('/api/contacts/:id', async (request: Request, response: Response) => {
       return response.status(409).json({ message: 'Este telefone já está em uso por outro contato.' });
     }
 
-    await knex('contacts').where('id', id).update({ name, email, phone });
+    await knex('contacts').where('id', id).update({ name, email, phone, is_favorite });
     
     return response.json({ message: 'Contato atualizado!' });
 
@@ -162,7 +164,6 @@ app.get('/api/contacts/:id', async (request: Request, response: Response) => {
 });
 
 // --- SERVIDOR ---
-// Usa a variável de ambiente PORT (necessário para deploy) ou 3000 (local)
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
