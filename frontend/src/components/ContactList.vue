@@ -1,14 +1,39 @@
 <script setup lang="ts">
-interface Contact { id: number; name: string; email: string; phone: string; }
+// 1. ATUALIZAÇÃO DA INTERFACE (Adicionei is_favorite)
+interface Contact {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  is_favorite?: boolean;
+}
 
 import { ref, computed, onMounted } from 'vue';
 import axios from 'axios';
-import BaseModal from './BaseModal.vue';     // O Modal Genérico
-import ContactForm from './ContactForm.vue'; // O Super Formulário
+import BaseModal from './BaseModal.vue';
+import ContactForm from './ContactForm.vue';
 
 const API_URL = import.meta.env.VITE_API_URL;
 const contacts = ref<Contact[]>([]);
 const searchTerm = ref('');
+
+const toggleFavorite = async (contact: any) => {
+  const oldValue = contact.is_favorite;
+
+  contact.is_favorite = !oldValue;
+
+  try {
+    // Envia para o backend
+    await axios.put(`${API_URL}/${contact.id}`, {
+      ...contact,
+      is_favorite: contact.is_favorite
+    }); 
+  } catch (error) {
+    console.error('Erro ao favoritar', error);
+    alert('Erro ao salvar favorito.');
+    contact.is_favorite = oldValue; // Desfaz erro
+  }
+}
 
 // Controle do Modal
 const showModal = ref(false);
@@ -16,26 +41,38 @@ const editingId = ref<number | undefined>(undefined);
 
 // --- AÇÕES DO MODAL ---
 const openCreate = () => {
-  editingId.value = undefined; // Sem ID = Criar
+  editingId.value = undefined;
   showModal.value = true;
 }
 
 const openEdit = (id: number) => {
-  editingId.value = id; // Com ID = Editar
+  editingId.value = id;
   showModal.value = true;
 }
 
 const handleSuccess = () => {
   showModal.value = false;
-  fetchContacts(); // Recarrega a lista para mostrar a mudança
+  fetchContacts();
 }
 
-// --- Busca e Filtros (Seu código original) ---
+// 3. ORDENAÇÃO (Favoritos no Topo)
 const filteredContacts = computed(() => {
-  if (!searchTerm.value) return contacts.value;
-  return contacts.value.filter(c =>
-    c.name.toLowerCase().includes(searchTerm.value.toLowerCase())
-  );
+  let list = contacts.value;
+
+  // Filtro de busca
+  if (searchTerm.value) {
+    list = list.filter(c =>
+      c.name.toLowerCase().includes(searchTerm.value.toLowerCase())
+    );
+  }
+
+  // Lógica de Ordenação: Cria uma cópia e ordena
+  return [...list].sort((a: any, b: any) => {
+    // Se B é favorito e A não é, B vem primeiro
+    if (b.is_favorite && !a.is_favorite) return 1;
+    if (!b.is_favorite && a.is_favorite) return -1;
+    return a.name.localeCompare(b.name);
+  });
 });
 
 const fetchContacts = async () => {
@@ -64,7 +101,6 @@ const getInitials = (name?: string | null) => {
   return (name.trim().substring(0, 2) || '?').toUpperCase();
 }
 
-
 onMounted(() => fetchContacts());
 </script>
 
@@ -91,7 +127,16 @@ onMounted(() => fetchContacts());
       <p v-if="filteredContacts.length === 0" class="empty-msg">Nenhum contato.</p>
 
       <div v-for="contact in filteredContacts" :key="contact.id" class="card">
-        <div class="avatar">{{ getInitials(contact.name) }}</div>
+
+        <div class="favorite-star" @click="toggleFavorite(contact)"
+          :title="contact.is_favorite ? 'Desfavoritar' : 'Favoritar'">
+          {{ contact.is_favorite ? '⭐' : '☆' }}
+        </div>
+
+        <div class="avatar" :class="{ 'avatar-fav': contact.is_favorite }">
+          {{ getInitials(contact.name) }}
+        </div>
+
         <div class="info">
           <h3>{{ contact.name }}</h3>
           <span class="email">{{ contact.email }}</span>
@@ -112,8 +157,6 @@ onMounted(() => fetchContacts());
 </template>
 
 <style scoped>
-/* (Mantenha o seu CSS anterior aqui, ele está perfeito) */
-/* Só adicione/garanta que o botão .btn-add tenha cursor pointer */
 .container {
   font-family: 'Segoe UI', sans-serif;
   color: #333;
@@ -204,6 +247,7 @@ onMounted(() => fetchContacts());
   gap: 15px;
 }
 
+/* 5. ESTILOS DA ESTRELA E CARD */
 .card {
   display: flex;
   align-items: center;
@@ -213,6 +257,26 @@ onMounted(() => fetchContacts());
   padding: 15px;
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  position: relative;
+  /* Necessário para posicionar a estrela */
+  padding-left: 45px;
+  /* Abre espaço na esquerda para a estrela */
+}
+
+.favorite-star {
+  position: absolute;
+  left: 12px;
+  /* Cola na esquerda */
+  top: 50%;
+  transform: translateY(-50%);
+  /* Centraliza verticalmente */
+  cursor: pointer;
+  font-size: 20px;
+  user-select: none;
+}
+
+.favorite-star:hover {
+  transform: translateY(-50%) scale(1.2);
 }
 
 .avatar {
@@ -226,6 +290,12 @@ onMounted(() => fetchContacts());
   align-items: center;
   font-weight: bold;
   flex-shrink: 0;
+}
+
+/* Cor especial para o avatar de favorito */
+.avatar-fav {
+  background-color: #fef08a;
+  color: #854d0e;
 }
 
 .info {
