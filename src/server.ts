@@ -15,24 +15,25 @@ const contactSchema = z.object({
   name: z.string()
     .trim()
     .min(3, 'O nome deve ter pelo menos 3 letras'),
-    
+
   email: z.string()
     .trim()
     .toLowerCase()
     .email('Formato de e-mail inválido'),
-    
+
   phone: z.string()
     .trim()
     .regex(/^\d{10,11}$/, 'O telefone deve ter 10 ou 11 números (apenas dígitos)'),
 
-    is_favorite: z.boolean().optional()
+  is_favorite: z.boolean().optional(),
+
+  category_id: z.coerce.number().optional().nullable()
 });
 
-// 2. Validação de ID (Blindada com Regex)
 const idSchema = z.object({
   id: z.string()
-    .regex(/^\d+$/, 'ID inválido. Deve ser um número.') // 1. Verifica se são dígitos
-    .transform(Number) // 2. Transforma em número
+    .regex(/^\d+$/, 'ID inválido. Deve ser um número.')
+    .transform(Number)
 });
 
 // --- ROTAS ---
@@ -42,9 +43,18 @@ app.get('/', (req: Request, res: Response) => {
   return res.json({ message: 'API da Agenda está rodando!' });
 });
 
-// Listar todos
+// Listar Categorias (Dropdown)
+app.get('/api/categories', async (req: Request, res: Response) => {
+  const categories = await knex('categories').select('*');
+  return res.json(categories);
+});
+
+// Listar todos (COM O JOIN - Esta é a versão correta)
 app.get('/api/contacts', async (req: Request, res: Response) => {
-  const contacts = await knex('contacts').select('*');
+  const contacts = await knex('contacts')
+    .leftJoin('categories', 'contacts.category_id', 'categories.id')
+    .select('contacts.*', 'categories.name as category_name');
+
   return res.json(contacts);
 });
 
@@ -53,7 +63,7 @@ app.post('/api/contacts', async (request: Request, response: Response) => {
   try {
     // 1. Validação Zod
     const data = contactSchema.parse(request.body);
-    const { name, email, phone, is_favorite } = data;
+    const { name, email, phone, is_favorite, category_id } = data;
 
     // 2. Integridade (E-mail)
     const emailExists = await knex('contacts').where('email', email).first();
@@ -67,7 +77,7 @@ app.post('/api/contacts', async (request: Request, response: Response) => {
       return response.status(409).json({ message: 'Este telefone já está cadastrado.' });
     }
 
-    await knex('contacts').insert({ name, email, phone, is_favorite });
+    await knex('contacts').insert({ name, email, phone, is_favorite, category_id });
 
     return response.status(201).json({ message: 'Contato criado com sucesso!' });
 
@@ -80,17 +90,15 @@ app.post('/api/contacts', async (request: Request, response: Response) => {
   }
 });
 
-
-
 // ROTA [PUT] - Atualizar
 app.put('/api/contacts/:id', async (request: Request, response: Response) => {
   try {
     // Valida ID
     const { id } = idSchema.parse(request.params);
-    
+
     // Valida Body
     const data = contactSchema.parse(request.body);
-    const { name, email, phone, is_favorite } = data;
+    const { name, email, phone, is_favorite, category_id } = data;
 
     // Verifica E-mail (excluindo o próprio ID)
     const emailExists = await knex('contacts')
@@ -112,15 +120,15 @@ app.put('/api/contacts/:id', async (request: Request, response: Response) => {
       return response.status(409).json({ message: 'Este telefone já está em uso por outro contato.' });
     }
 
-    await knex('contacts').where('id', id).update({ name, email, phone, is_favorite });
-    
+    await knex('contacts').where('id', id).update({ name, email, phone, is_favorite, category_id });
+
     return response.json({ message: 'Contato atualizado!' });
 
   } catch (error: any) {
     if (error instanceof z.ZodError) {
       return response.status(400).json({ message: error.issues[0].message });
     }
-    
+
     console.log(error);
     return response.status(500).json({ message: 'Erro ao atualizar contato.' });
   }
