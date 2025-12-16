@@ -1,11 +1,11 @@
 <script setup lang="ts">
-// 1. ATUALIZAÇÃO DA INTERFACE (Adicionei is_favorite)
 interface Contact {
   id: number;
   name: string;
   email: string;
   phone: string;
   is_favorite?: boolean;
+  category_name?: string; 
 }
 
 import { ref, computed, onMounted } from 'vue';
@@ -17,21 +17,20 @@ const API_URL = import.meta.env.VITE_API_URL;
 const contacts = ref<Contact[]>([]);
 const searchTerm = ref('');
 
+// --- FAVORITAR ---
 const toggleFavorite = async (contact: any) => {
   const oldValue = contact.is_favorite;
-
   contact.is_favorite = !oldValue;
 
   try {
-    // Envia para o backend
     await axios.put(`${API_URL}/${contact.id}`, {
       ...contact,
       is_favorite: contact.is_favorite
-    }); 
+    });
   } catch (error) {
     console.error('Erro ao favoritar', error);
     alert('Erro ao salvar favorito.');
-    contact.is_favorite = oldValue; // Desfaz erro
+    contact.is_favorite = oldValue;
   }
 }
 
@@ -39,7 +38,6 @@ const toggleFavorite = async (contact: any) => {
 const showModal = ref(false);
 const editingId = ref<number | undefined>(undefined);
 
-// --- AÇÕES DO MODAL ---
 const openCreate = () => {
   editingId.value = undefined;
   showModal.value = true;
@@ -55,20 +53,18 @@ const handleSuccess = () => {
   fetchContacts();
 }
 
-// 3. ORDENAÇÃO (Favoritos no Topo)
+// --- ORDENAÇÃO E FILTRO ---
 const filteredContacts = computed(() => {
   let list = contacts.value;
 
-  // Filtro de busca
   if (searchTerm.value) {
     list = list.filter(c =>
       c.name.toLowerCase().includes(searchTerm.value.toLowerCase())
     );
   }
 
-  // Lógica de Ordenação: Cria uma cópia e ordena
+  // Ordena: Favoritos no topo
   return [...list].sort((a: any, b: any) => {
-    // Se B é favorito e A não é, B vem primeiro
     if (b.is_favorite && !a.is_favorite) return 1;
     if (!b.is_favorite && a.is_favorite) return -1;
     return a.name.localeCompare(b.name);
@@ -77,7 +73,7 @@ const filteredContacts = computed(() => {
 
 const fetchContacts = async () => {
   try {
-    const response = await axios.get(API_URL);
+    const response = await axios.get(`${API_URL}/contacts`);
     contacts.value = response.data;
   } catch (error) { console.error(error); }
 };
@@ -139,6 +135,11 @@ onMounted(() => fetchContacts());
 
         <div class="info">
           <h3>{{ contact.name }}</h3>
+
+          <span v-if="contact.category_name" class="category-badge">
+            {{ contact.category_name }}
+          </span>
+
           <span class="email">{{ contact.email }}</span>
           <span class="phone">{{ contact.phone }}</span>
         </div>
@@ -247,7 +248,6 @@ onMounted(() => fetchContacts());
   gap: 15px;
 }
 
-/* 5. ESTILOS DA ESTRELA E CARD */
 .card {
   display: flex;
   align-items: center;
@@ -258,18 +258,14 @@ onMounted(() => fetchContacts());
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   position: relative;
-  /* Necessário para posicionar a estrela */
   padding-left: 45px;
-  /* Abre espaço na esquerda para a estrela */
 }
 
 .favorite-star {
   position: absolute;
   left: 12px;
-  /* Cola na esquerda */
   top: 50%;
   transform: translateY(-50%);
-  /* Centraliza verticalmente */
   cursor: pointer;
   font-size: 20px;
   user-select: none;
@@ -292,7 +288,6 @@ onMounted(() => fetchContacts());
   flex-shrink: 0;
 }
 
-/* Cor especial para o avatar de favorito */
 .avatar-fav {
   background-color: #fef08a;
   color: #854d0e;
@@ -305,7 +300,11 @@ onMounted(() => fetchContacts());
 .info h3 {
   margin: 0 0 4px 0;
   font-size: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
+
 
 .info span {
   display: block;
@@ -324,5 +323,19 @@ onMounted(() => fetchContacts());
 .icon-btn:hover {
   background-color: #f1f5f9;
   border-radius: 4px;
+}
+
+
+.category-badge {
+  display: inline-block !important;
+  background-color: #e0e7ff;
+  color: #4338ca;
+  font-size: 11px !important;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
 }
 </style>
