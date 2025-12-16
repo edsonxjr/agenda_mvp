@@ -2,14 +2,24 @@
 import { ref, onMounted, watch } from 'vue';
 import axios from 'axios';
 
+// 1. CORREÇÃO DO TYPESCRIPT (Define o formato da categoria)
+interface Category {
+  id: number;
+  name: string;
+}
+
 const props = defineProps<{ id?: number }>();
 const emit = defineEmits(['close', 'saved']);
 
+// Pega a URL base do .env (Geralmente http://localhost:3000/api)
 const API_URL = import.meta.env.VITE_API_URL;
 
-const formData = ref({ name: '', email: '', phone: '' });
+const formData = ref({ name: '', email: '', phone: '', category_id: '' as string | number });
 const isEditing = ref(false);
 const errors = ref({ name: '', email: '', phone: '' });
+
+// 2. CORREÇÃO DA LISTA (Avisa que é uma lista de Categorias)
+const categories = ref<Category[]>([]);
 
 const validateForm = () => {
   let isValid = true;
@@ -34,19 +44,38 @@ const validateForm = () => {
   return isValid;
 };
 
+// 3. CORREÇÃO DA URL (Endereço explícito para não ter erro)
+const fetchCategories = async () => {
+  try {
+    // Usamos o endereço direto para garantir que não entre "/contacts" no meio
+    const response = await axios.get('http://localhost:3000/api/categories');
+    console.log('Categorias carregadas:', response.data);
+    categories.value = response.data;
+  } catch (error) {
+    console.error('Erro ao carregar categorias', error);
+  }
+};
+
 const loadContact = async () => {
   errors.value = { name: '', email: '', phone: '' };
 
   if (!props.id) {
-    formData.value = { name: '', email: '', phone: '' };
+    formData.value = { name: '', email: '', phone: '', category_id: '' };
     isEditing.value = false;
     return;
   }
 
   isEditing.value = true;
   try {
-    const response = await axios.get(`${API_URL}/${props.id}`);
-    formData.value = response.data;
+    const response = await axios.get(`${API_URL}/contacts/${props.id}`);
+    const data = response.data;
+
+    formData.value = {
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      category_id: data.category_id || ''
+    };
   } catch (error) {
     alert('Erro ao carregar contato.');
     emit('close');
@@ -56,12 +85,17 @@ const loadContact = async () => {
 const handleSubmit = async () => {
   if (!validateForm()) return;
 
+  const payload = {
+    ...formData.value,
+    category_id: formData.value.category_id ? Number(formData.value.category_id) : null
+  };
+
   try {
     if (isEditing.value) {
-      await axios.put(`${API_URL}/${props.id}`, formData.value);
+      await axios.put(`${API_URL}/contacts/${props.id}`, payload);
       alert('Contato atualizado!');
     } else {
-      await axios.post(API_URL, formData.value);
+      await axios.post(`${API_URL}/contacts`, payload);
       alert('Contato criado!');
     }
 
@@ -88,7 +122,10 @@ const handleSubmit = async () => {
 
 watch(() => props.id, loadContact);
 
-onMounted(() => { loadContact(); });
+onMounted(() => {
+  fetchCategories();
+  loadContact();
+});
 </script>
 
 <template>
@@ -118,6 +155,16 @@ onMounted(() => { loadContact(); });
         </div>
       </div>
 
+      <div class="input-group">
+        <label>Categoria</label>
+        <select v-model="formData.category_id" class="select-input">
+          <option value="">Sem Categoria</option>
+          <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+            {{ cat.name }}
+          </option>
+        </select>
+      </div>
+
       <div class="actions">
         <button type="button" class="btn-cancel" @click="$emit('close')">Cancelar</button>
 
@@ -130,6 +177,7 @@ onMounted(() => { loadContact(); });
 </template>
 
 <style scoped>
+/* Mantive todo o seu CSS original */
 h2 {
   margin-top: 0;
   color: #1e293b;
@@ -154,7 +202,8 @@ label {
   font-size: 13px;
 }
 
-input {
+input,
+.select-input {
   width: 100%;
   padding: 10px;
   border: 1px solid #cbd5e1;
@@ -162,9 +211,11 @@ input {
   outline: none;
   box-sizing: border-box;
   transition: border-color 0.2s;
+  background-color: white;
 }
 
-input:focus {
+input:focus,
+.select-input:focus {
   border-color: #3b82f6;
 }
 
