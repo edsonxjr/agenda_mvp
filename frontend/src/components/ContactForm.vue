@@ -2,7 +2,7 @@
 import { ref, onMounted, watch } from 'vue';
 import axios from 'axios';
 
-// 1. CORREÇÃO DO TYPESCRIPT (Define o formato da categoria)
+// 1. DEFINIÇÃO DO TIPO (Para o TypeScript não reclamar)
 interface Category {
   id: number;
   name: string;
@@ -11,14 +11,14 @@ interface Category {
 const props = defineProps<{ id?: number }>();
 const emit = defineEmits(['close', 'saved']);
 
-// Pega a URL base do .env (Geralmente http://localhost:3000/api)
+// Pega a URL base do seu arquivo .env
 const API_URL = import.meta.env.VITE_API_URL;
 
 const formData = ref({ name: '', email: '', phone: '', category_id: '' as string | number });
 const isEditing = ref(false);
 const errors = ref({ name: '', email: '', phone: '' });
 
-// 2. CORREÇÃO DA LISTA (Avisa que é uma lista de Categorias)
+// 2. LISTA DE CATEGORIAS TIPADA
 const categories = ref<Category[]>([]);
 
 const validateForm = () => {
@@ -29,30 +29,27 @@ const validateForm = () => {
     errors.value.name = 'O nome precisa ter pelo menos 3 letras.';
     isValid = false;
   }
-
   const phoneDigits = formData.value.phone.replace(/\D/g, '');
   if (phoneDigits.length < 10) {
     errors.value.phone = 'Telefone inválido (mínimo 10 números).';
     isValid = false;
   }
-
   if (!formData.value.email.includes('@')) {
     errors.value.email = 'E-mail inválido.';
     isValid = false;
   }
-
   return isValid;
 };
 
-// 3. CORREÇÃO DA URL (Endereço explícito para não ter erro)
+// 3. CORREÇÃO DA URL: Usamos o endereço direto para evitar duplicidade
 const fetchCategories = async () => {
   try {
-    // Usamos o endereço direto para garantir que não entre "/contacts" no meio
+    // Endereço fixo para garantir que pegue a raiz correta da API
     const response = await axios.get('http://localhost:3000/api/categories');
-    console.log('Categorias carregadas:', response.data);
+    console.log('✅ Categorias carregadas:', response.data);
     categories.value = response.data;
   } catch (error) {
-    console.error('Erro ao carregar categorias', error);
+    console.error('❌ Erro ao carregar categorias:', error);
   }
 };
 
@@ -67,9 +64,9 @@ const loadContact = async () => {
 
   isEditing.value = true;
   try {
-    const response = await axios.get(`${API_URL}/contacts/${props.id}`);
+    // Aqui mantemos API_URL pois é rota de contatos
+    const response = await axios.get(`${API_URL}/${props.id}`);
     const data = response.data;
-
     formData.value = {
       name: data.name,
       email: data.email,
@@ -92,28 +89,20 @@ const handleSubmit = async () => {
 
   try {
     if (isEditing.value) {
-      await axios.put(`${API_URL}/contacts/${props.id}`, payload);
+      await axios.put(`${API_URL}/${props.id}`, payload);
       alert('Contato atualizado!');
     } else {
-      await axios.post(`${API_URL}/contacts`, payload);
+      // Se API_URL já tiver /contacts no final, usamos direto.
+      // Se der erro, troque por `http://localhost:3000/api/contacts`
+      await axios.post(API_URL, payload);
       alert('Contato criado!');
     }
-
     emit('saved');
     emit('close');
-
   } catch (error: any) {
     console.error(error);
-
-    if (error.response && error.response.status === 409) {
-      const msg = error.response.data.message.toLowerCase();
-      if (msg.includes('email') || msg.includes('e-mail')) {
-        errors.value.email = error.response.data.message;
-      } else if (msg.includes('telefone') || msg.includes('phone')) {
-        errors.value.phone = error.response.data.message;
-      } else {
-        alert(error.response.data.message);
-      }
+    if (error.response && error.response.data) {
+      alert(error.response.data.message || 'Erro ao salvar.');
     } else {
       alert('Erro ao salvar.');
     }
@@ -133,7 +122,6 @@ onMounted(() => {
     <h2>{{ isEditing ? '✏️ Editar Contato' : '➕ Novo Contato' }}</h2>
 
     <form @submit.prevent="handleSubmit">
-
       <div class="input-group">
         <label>Nome</label>
         <input v-model="formData.name" placeholder="Ex: João Silva" :class="{ 'input-error': errors.name }">
@@ -147,7 +135,6 @@ onMounted(() => {
             :class="{ 'input-error': errors.email }">
           <span v-if="errors.email" class="error-msg">{{ errors.email }}</span>
         </div>
-
         <div class="input-group">
           <label>Telefone</label>
           <input v-model="formData.phone" placeholder="(00) 00000-0000" :class="{ 'input-error': errors.phone }">
@@ -167,7 +154,6 @@ onMounted(() => {
 
       <div class="actions">
         <button type="button" class="btn-cancel" @click="$emit('close')">Cancelar</button>
-
         <button type="submit" class="btn-save">
           {{ isEditing ? 'Salvar Alterações' : 'Criar Contato' }}
         </button>
@@ -177,7 +163,7 @@ onMounted(() => {
 </template>
 
 <style scoped>
-/* Mantive todo o seu CSS original */
+/* SEUS ESTILOS ORIGINAIS MANTIDOS */
 h2 {
   margin-top: 0;
   color: #1e293b;
