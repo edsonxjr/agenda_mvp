@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// 1. Interface atualizada
+// 1. Interfaces
 interface Contact {
   id: number;
   name: string;
@@ -9,64 +9,67 @@ interface Contact {
   category_name?: string;
 }
 
+interface Stat {
+  category: string | null;
+  total: number;
+}
+
 import { ref, computed, onMounted } from 'vue';
 import axios from 'axios';
 import BaseModal from './BaseModal.vue';
 import ContactForm from './ContactForm.vue';
 
-// URL base do .env (Geralmente http://localhost:3000/api/contacts)
 const API_URL = import.meta.env.VITE_API_URL;
 
 const contacts = ref<Contact[]>([]);
+const stats = ref<Stat[]>([]); // <--- Onde guardamos os números
 const searchTerm = ref('');
+const showModal = ref(false);
+const editingId = ref<number | undefined>(undefined);
 
-// --- FAVORITAR ---
+// --- DASHBOARD: BUSCAR ESTATÍSTICAS ---
+const fetchStats = async () => {
+  try {
+    const response = await axios.get('http://localhost:3000/api/stats');
+    stats.value = response.data;
+  } catch (error) {
+    console.error('Erro ao carregar estatísticas', error);
+  }
+};
+
+// --- CONTATOS ---
+const fetchContacts = async () => {
+  try {
+    const response = await axios.get('http://localhost:3000/api/contacts');
+    contacts.value = response.data;
+    fetchStats(); // Atualiza os números também
+  } catch (error) { console.error(error); }
+};
+
 const toggleFavorite = async (contact: any) => {
   const oldValue = contact.is_favorite;
   contact.is_favorite = !oldValue;
-
   try {
-    // Aqui usamos API_URL + ID, então fica .../contacts/1 (Correto)
-    await axios.put(`${API_URL}/${contact.id}`, {
-      ...contact,
-      is_favorite: contact.is_favorite
-    });
+    await axios.put(`${API_URL}/${contact.id}`, { ...contact, is_favorite: contact.is_favorite });
   } catch (error) {
-    console.error('Erro ao favoritar', error);
-    alert('Erro ao salvar favorito.');
     contact.is_favorite = oldValue;
   }
 }
 
-// Controle do Modal
-const showModal = ref(false);
-const editingId = ref<number | undefined>(undefined);
+const deleteContact = async (id: number) => {
+  if (!confirm('Tem certeza?')) return;
+  try {
+    await axios.delete(`${API_URL}/${id}`);
+    fetchContacts(); // Recarrega tudo para atualizar os números
+  } catch (e) { alert('Erro ao deletar'); }
+};
 
-const openCreate = () => {
-  editingId.value = undefined;
-  showModal.value = true;
-}
-
-const openEdit = (id: number) => {
-  editingId.value = id;
-  showModal.value = true;
-}
-
-const handleSuccess = () => {
-  showModal.value = false;
-  fetchContacts();
-}
-
-// --- ORDENAÇÃO E FILTRO ---
+// Filtro e Ordenação
 const filteredContacts = computed(() => {
   let list = contacts.value;
-
   if (searchTerm.value) {
-    list = list.filter(c =>
-      c.name.toLowerCase().includes(searchTerm.value.toLowerCase())
-    );
+    list = list.filter(c => c.name.toLowerCase().includes(searchTerm.value.toLowerCase()));
   }
-
   return [...list].sort((a: any, b: any) => {
     if (b.is_favorite && !a.is_favorite) return 1;
     if (!b.is_favorite && a.is_favorite) return -1;
@@ -74,34 +77,13 @@ const filteredContacts = computed(() => {
   });
 });
 
-// --- BUSCAR CONTATOS (CORREÇÃO AQUI) ---
-const fetchContacts = async () => {
-  try {
-    // CORREÇÃO: Usamos o endereço fixo para garantir que não duplique
-    // Antes estava `${API_URL}/contacts` e gerava erro
-    const response = await axios.get('http://localhost:3000/api/contacts');
-    contacts.value = response.data;
-  } catch (error) {
-    console.error('Erro ao buscar contatos:', error);
-  }
-};
-
-const deleteContact = async (id: number) => {
-  if (!confirm('Tem certeza?')) return;
-  try {
-    await axios.delete(`${API_URL}/${id}`);
-    contacts.value = contacts.value.filter(c => c.id !== id);
-  } catch (e) { alert('Erro ao deletar'); }
-};
+// Modal
+const openCreate = () => { editingId.value = undefined; showModal.value = true; }
+const openEdit = (id: number) => { editingId.value = id; showModal.value = true; }
+const handleSuccess = () => { showModal.value = false; fetchContacts(); }
 
 const getInitials = (name?: string | null) => {
   if (!name) return '?';
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) {
-    const a = parts[0]?.[0] ?? '';
-    const b = parts[1]?.[0] ?? '';
-    return (a + b).toUpperCase() || '?';
-  }
   return (name.trim().substring(0, 2) || '?').toUpperCase();
 }
 
@@ -110,44 +92,46 @@ onMounted(() => fetchContacts());
 
 <template>
   <div class="container">
+
     <div class="header">
-      <h2>Meus Contatos</h2>
-      <p>{{ contacts.length }} contatos salvos</p>
+      <h2>Painel de Controle</h2>
+    </div>
+
+    <div class="stats-row">
+      <div v-for="(stat, index) in stats" :key="index" class="stat-card">
+        <h3>{{ stat.total }}</h3>
+        <p>{{ stat.category || 'Sem Categoria' }}</p>
+      </div>
+
+      <div class="stat-card total-card">
+        <h3>{{ contacts.length }}</h3>
+        <p>Total Geral</p>
+      </div>
     </div>
 
     <div class="actions-bar">
       <div class="search-pill">
         <span class="search-icon">🔍</span>
         <input type="text" placeholder="Buscar..." v-model="searchTerm">
-        <button class="btn-search-inside">Busca</button>
       </div>
-
-      <button class="btn-add" @click="openCreate">
-        + Novo
-      </button>
+      <button class="btn-add" @click="openCreate">+ Novo</button>
     </div>
 
     <div class="contact-list">
       <p v-if="filteredContacts.length === 0" class="empty-msg">Nenhum contato.</p>
 
       <div v-for="contact in filteredContacts" :key="contact.id" class="card">
-
-        <div class="favorite-star" @click="toggleFavorite(contact)"
-          :title="contact.is_favorite ? 'Desfavoritar' : 'Favoritar'">
+        <div class="favorite-star" @click="toggleFavorite(contact)">
           {{ contact.is_favorite ? '⭐' : '☆' }}
         </div>
-
         <div class="avatar" :class="{ 'avatar-fav': contact.is_favorite }">
           {{ getInitials(contact.name) }}
         </div>
-
         <div class="info">
           <h3>{{ contact.name }}</h3>
-
           <span v-if="contact.category_name" class="category-badge">
             {{ contact.category_name }}
           </span>
-
           <span class="email">{{ contact.email }}</span>
           <span class="phone">{{ contact.phone }}</span>
         </div>
@@ -166,7 +150,6 @@ onMounted(() => fetchContacts());
 </template>
 
 <style scoped>
-/* SEUS ESTILOS ORIGINAIS */
 .container {
   font-family: 'Segoe UI', sans-serif;
   color: #333;
@@ -176,19 +159,54 @@ onMounted(() => fetchContacts());
 }
 
 .header {
-  margin-bottom: 25px;
+  margin-bottom: 20px;
+  text-align: center;
 }
 
-.header h2 {
+/* 3. ESTILO DOS CARTÕES */
+.stats-row {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 30px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.stat-card {
+  background: white;
+  padding: 15px 25px;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  min-width: 100px;
+  border: 1px solid #e2e8f0;
+}
+
+.stat-card h3 {
   margin: 0;
-  font-size: 24px;
-  color: #1e293b;
+  font-size: 28px;
+  color: #2563eb;
 }
 
-.header p {
+.stat-card p {
+  margin: 5px 0 0 0;
+  font-size: 13px;
   color: #64748b;
-  margin: 5px 0 20px 0;
-  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.total-card {
+  background-color: #2563eb;
+  border: none;
+}
+
+.total-card h3 {
+  color: white;
+}
+
+.total-card p {
+  color: #bfdbfe;
 }
 
 .actions-bar {
@@ -196,7 +214,7 @@ onMounted(() => fetchContacts());
   justify-content: center;
   align-items: center;
   gap: 10px;
-  margin-bottom: 30px;
+  margin-bottom: 20px;
 }
 
 .search-pill {
@@ -206,8 +224,8 @@ onMounted(() => fetchContacts());
   border: 1px solid #e2e8f0;
   border-radius: 50px;
   padding: 4px;
-  width: 500px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.02);
+  width: 100%;
+  max-width: 500px;
 }
 
 .search-pill input {
@@ -217,21 +235,10 @@ onMounted(() => fetchContacts());
   padding: 10px;
   font-size: 15px;
   outline: none;
-  color: #333;
 }
 
 .search-icon {
   padding-left: 15px;
-}
-
-.btn-search-inside {
-  background-color: #2563eb;
-  color: white;
-  border: none;
-  padding: 10px 24px;
-  border-radius: 30px;
-  font-weight: 600;
-  cursor: pointer;
 }
 
 .btn-add {
@@ -241,14 +248,7 @@ onMounted(() => fetchContacts());
   padding: 10px 20px;
   border-radius: 30px;
   font-weight: 600;
-  font-size: 14px;
   cursor: pointer;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-  transition: transform 0.2s;
-}
-
-.btn-add:hover {
-  transform: scale(1.05);
 }
 
 .contact-list {
@@ -265,7 +265,6 @@ onMounted(() => fetchContacts());
   border: 1px solid #e2e8f0;
   padding: 15px;
   border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   position: relative;
   padding-left: 45px;
 }
@@ -277,11 +276,6 @@ onMounted(() => fetchContacts());
   transform: translateY(-50%);
   cursor: pointer;
   font-size: 20px;
-  user-select: none;
-}
-
-.favorite-star:hover {
-  transform: translateY(-50%) scale(1.2);
 }
 
 .avatar {
@@ -309,9 +303,6 @@ onMounted(() => fetchContacts());
 .info h3 {
   margin: 0 0 4px 0;
   font-size: 16px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
 }
 
 .info span {
@@ -320,20 +311,6 @@ onMounted(() => fetchContacts());
   color: #64748b;
 }
 
-.icon-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 1.2rem;
-  padding: 6px;
-}
-
-.icon-btn:hover {
-  background-color: #f1f5f9;
-  border-radius: 4px;
-}
-
-/* ESTILO DA ETIQUETA */
 .category-badge {
   display: inline-block !important;
   background-color: #e0e7ff;
@@ -343,7 +320,14 @@ onMounted(() => fetchContacts());
   border-radius: 12px;
   font-weight: 600;
   margin-bottom: 4px;
-  letter-spacing: 0.5px;
   text-transform: uppercase;
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.2rem;
+  padding: 6px;
 }
 </style>
