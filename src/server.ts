@@ -171,6 +171,21 @@ app.get('/api/contacts/:id', async (request: Request, response: Response) => {
   }
 });
 
+app.get('/api/stats', async (req: Request, res: Response) => {
+  try {
+    const stats = await knex('contacts')
+      .leftJoin('categories', 'contacts.category_id', 'categories.id')
+      .select('categories.name as category')
+      .count('contacts.id as total')
+      .groupBy('categories.name');
+
+    return res.json(stats);
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ message: 'Erro ao gerar estatísticas' });
+  }
+});
+
 // --- SERVIDOR ---
 const PORT = process.env.PORT || 3000;
 
