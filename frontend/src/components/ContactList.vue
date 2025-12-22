@@ -1,11 +1,12 @@
 <script setup lang="ts">
+// 1. Interface atualizada
 interface Contact {
   id: number;
   name: string;
   email: string;
   phone: string;
   is_favorite?: boolean;
-  category_name?: string; 
+  category_name?: string;
 }
 
 import { ref, computed, onMounted } from 'vue';
@@ -13,7 +14,9 @@ import axios from 'axios';
 import BaseModal from './BaseModal.vue';
 import ContactForm from './ContactForm.vue';
 
+// URL base do .env (Geralmente http://localhost:3000/api/contacts)
 const API_URL = import.meta.env.VITE_API_URL;
+
 const contacts = ref<Contact[]>([]);
 const searchTerm = ref('');
 
@@ -23,6 +26,7 @@ const toggleFavorite = async (contact: any) => {
   contact.is_favorite = !oldValue;
 
   try {
+    // Aqui usamos API_URL + ID, então fica .../contacts/1 (Correto)
     await axios.put(`${API_URL}/${contact.id}`, {
       ...contact,
       is_favorite: contact.is_favorite
@@ -63,7 +67,6 @@ const filteredContacts = computed(() => {
     );
   }
 
-  // Ordena: Favoritos no topo
   return [...list].sort((a: any, b: any) => {
     if (b.is_favorite && !a.is_favorite) return 1;
     if (!b.is_favorite && a.is_favorite) return -1;
@@ -71,11 +74,16 @@ const filteredContacts = computed(() => {
   });
 });
 
+// --- BUSCAR CONTATOS (CORREÇÃO AQUI) ---
 const fetchContacts = async () => {
   try {
-    const response = await axios.get(`${API_URL}/contacts`);
+    // CORREÇÃO: Usamos o endereço fixo para garantir que não duplique
+    // Antes estava `${API_URL}/contacts` e gerava erro
+    const response = await axios.get('http://localhost:3000/api/contacts');
     contacts.value = response.data;
-  } catch (error) { console.error(error); }
+  } catch (error) {
+    console.error('Erro ao buscar contatos:', error);
+  }
 };
 
 const deleteContact = async (id: number) => {
@@ -158,6 +166,7 @@ onMounted(() => fetchContacts());
 </template>
 
 <style scoped>
+/* SEUS ESTILOS ORIGINAIS */
 .container {
   font-family: 'Segoe UI', sans-serif;
   color: #333;
@@ -305,7 +314,6 @@ onMounted(() => fetchContacts());
   gap: 10px;
 }
 
-
 .info span {
   display: block;
   font-size: 13px;
@@ -325,7 +333,7 @@ onMounted(() => fetchContacts());
   border-radius: 4px;
 }
 
-
+/* ESTILO DA ETIQUETA */
 .category-badge {
   display: inline-block !important;
   background-color: #e0e7ff;
