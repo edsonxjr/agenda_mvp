@@ -2,7 +2,6 @@
 import { ref, onMounted, watch } from 'vue';
 import axios from 'axios';
 
-// 1. DEFINIÇÃO DO TIPO (Para o TypeScript não reclamar)
 interface Category {
   id: number;
   name: string;
@@ -11,27 +10,48 @@ interface Category {
 const props = defineProps<{ id?: number }>();
 const emit = defineEmits(['close', 'saved']);
 
-// Pega a URL base do seu arquivo .env
+// URL base para API e para Imagens
 const API_URL = import.meta.env.VITE_API_URL;
+const SERVER_URL = 'http://localhost:3000'; // Para montar o link da foto
 
-const formData = ref({ name: '', email: '', phone: '', category_id: '' as string | number });
+const formData = ref({
+  name: '',
+  email: '',
+  phone: '',
+  category_id: '' as string | number,
+  is_favorite: false
+});
+
+const selectedFile = ref<File | null>(null); // Guarda o arquivo real
+const previewUrl = ref<string | null>(null); // Guarda o link para mostrar na tela
+
 const isEditing = ref(false);
 const errors = ref({ name: '', email: '', phone: '' });
-
-// 2. LISTA DE CATEGORIAS TIPADA
 const categories = ref<Category[]>([]);
+
+// --- 1. SELEÇÃO DE ARQUIVO ---
+const handleFileChange = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  if (target.files && target.files[0]) {
+    const file = target.files[0];
+    selectedFile.value = file;
+
+    // Cria uma URL temporária para mostrar a foto na hora
+    previewUrl.value = URL.createObjectURL(file);
+  }
+};
 
 const validateForm = () => {
   let isValid = true;
   errors.value = { name: '', email: '', phone: '' };
 
   if (formData.value.name.trim().length < 3) {
-    errors.value.name = 'O nome precisa ter pelo menos 3 letras.';
+    errors.value.name = 'Mínimo 3 letras.';
     isValid = false;
   }
   const phoneDigits = formData.value.phone.replace(/\D/g, '');
   if (phoneDigits.length < 10) {
-    errors.value.phone = 'Telefone inválido (mínimo 10 números).';
+    errors.value.phone = 'Mínimo 10 números.';
     isValid = false;
   }
   if (!formData.value.email.includes('@')) {
@@ -41,40 +61,45 @@ const validateForm = () => {
   return isValid;
 };
 
-// 3. CORREÇÃO DA URL: Usamos o endereço direto para evitar duplicidade
 const fetchCategories = async () => {
   try {
-    // Endereço fixo para garantir que pegue a raiz correta da API
     const response = await axios.get('http://localhost:3000/api/categories');
-    console.log('✅ Categorias carregadas:', response.data);
     categories.value = response.data;
-  } catch (error) {
-    console.error('❌ Erro ao carregar categorias:', error);
-  }
+  } catch (error) { console.error(error); }
 };
 
 const loadContact = async () => {
+  // Reseta tudo
   errors.value = { name: '', email: '', phone: '' };
+  selectedFile.value = null;
+  previewUrl.value = null;
 
   if (!props.id) {
-    formData.value = { name: '', email: '', phone: '', category_id: '' };
+    formData.value = { name: '', email: '', phone: '', category_id: '', is_favorite: false };
     isEditing.value = false;
     return;
   }
 
   isEditing.value = true;
   try {
-    // Aqui mantemos API_URL pois é rota de contatos
     const response = await axios.get(`${API_URL}/${props.id}`);
     const data = response.data;
+
     formData.value = {
       name: data.name,
       email: data.email,
       phone: data.phone,
-      category_id: data.category_id || ''
+      category_id: data.category_id || '',
+      is_favorite: Boolean(data.is_favorite)
     };
+
+    // Se o contato já tiver foto no banco, mostramos ela
+    if (data.photo_path) {
+      previewUrl.value = `${SERVER_URL}/${data.photo_path}`;
+    }
+
   } catch (error) {
-    alert('Erro ao carregar contato.');
+    alert('Erro ao carregar.');
     emit('close');
   }
 };
@@ -82,30 +107,36 @@ const loadContact = async () => {
 const handleSubmit = async () => {
   if (!validateForm()) return;
 
-  const payload = {
-    ...formData.value,
-    category_id: formData.value.category_id ? Number(formData.value.category_id) : null
-  };
+  // --- 2. PREPARANDO O FORM DATA (A Caixa de Correio) ---
+  const data = new FormData();
+  data.append('name', formData.value.name);
+  data.append('email', formData.value.email);
+  data.append('phone', formData.value.phone);
+  data.append('is_favorite', String(formData.value.is_favorite)); // Envia como texto "true"/"false"
+
+  if (formData.value.category_id) {
+    data.append('category_id', String(formData.value.category_id));
+  }
+
+  // Se o usuário escolheu uma foto nova, coloca na caixa
+  if (selectedFile.value) {
+    data.append('photo', selectedFile.value);
+  }
 
   try {
     if (isEditing.value) {
-      await axios.put(`${API_URL}/${props.id}`, payload);
+      // O Axios detecta o FormData e ajusta os headers sozinho
+      await axios.put(`${API_URL}/${props.id}`, data);
       alert('Contato atualizado!');
     } else {
-      // Se API_URL já tiver /contacts no final, usamos direto.
-      // Se der erro, troque por `http://localhost:3000/api/contacts`
-      await axios.post(API_URL, payload);
+      await axios.post(API_URL, data);
       alert('Contato criado!');
     }
     emit('saved');
     emit('close');
   } catch (error: any) {
     console.error(error);
-    if (error.response && error.response.data) {
-      alert(error.response.data.message || 'Erro ao salvar.');
-    } else {
-      alert('Erro ao salvar.');
-    }
+    alert(error.response?.data?.message || 'Erro ao salvar.');
   }
 };
 
@@ -119,9 +150,24 @@ onMounted(() => {
 
 <template>
   <div class="form-wrapper">
-    <h2>{{ isEditing ? '✏️ Editar Contato' : '➕ Novo Contato' }}</h2>
+    <h2>{{ isEditing ? '✏️ Editar Contato' : '📸 Novo Contato' }}</h2>
 
     <form @submit.prevent="handleSubmit">
+
+      <div class="photo-section">
+        <div class="photo-preview" v-if="previewUrl">
+          <img :src="previewUrl" alt="Prévia da foto">
+        </div>
+        <div class="photo-placeholder" v-else>
+          👤
+        </div>
+
+        <label class="custom-file-upload">
+          <input type="file" @change="handleFileChange" accept="image/*">
+          Escolher Foto
+        </label>
+      </div>
+
       <div class="input-group">
         <label>Nome</label>
         <input v-model="formData.name" placeholder="Ex: João Silva" :class="{ 'input-error': errors.name }">
@@ -152,6 +198,13 @@ onMounted(() => {
         </select>
       </div>
 
+      <div class="checkbox-group">
+        <label>
+          <input type="checkbox" v-model="formData.is_favorite">
+          Marcar como Favorito ⭐
+        </label>
+      </div>
+
       <div class="actions">
         <button type="button" class="btn-cancel" @click="$emit('close')">Cancelar</button>
         <button type="submit" class="btn-save">
@@ -163,11 +216,12 @@ onMounted(() => {
 </template>
 
 <style scoped>
-/* SEUS ESTILOS ORIGINAIS MANTIDOS */
+/* Estilos gerais iguais aos anteriores */
 h2 {
   margin-top: 0;
   color: #1e293b;
   margin-bottom: 20px;
+  text-align: center;
 }
 
 .row {
@@ -188,7 +242,7 @@ label {
   font-size: 13px;
 }
 
-input,
+input:not([type="checkbox"]):not([type="file"]),
 .select-input {
   width: 100%;
   padding: 10px;
@@ -249,7 +303,72 @@ input:focus,
   cursor: pointer;
 }
 
-.btn-cancel:hover {
+/* --- ESTILOS NOVOS DA FOTO --- */
+.photo-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.photo-preview {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3px solid #3b82f6;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin-bottom: 10px;
+}
+
+.photo-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-placeholder {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
   background-color: #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  margin-bottom: 10px;
+  border: 3px solid #cbd5e1;
+}
+
+/* Esconde o input file feio e cria um botão bonito */
+input[type="file"] {
+  display: none;
+}
+
+.custom-file-upload {
+  border: 1px solid #cbd5e1;
+  display: inline-block;
+  padding: 6px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 13px;
+  background: #f8fafc;
+  color: #334155;
+  transition: background 0.2s;
+}
+
+.custom-file-upload:hover {
+  background: #e2e8f0;
+}
+
+.checkbox-group {
+  margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+}
+
+.checkbox-group input {
+  width: auto;
+  margin-right: 8px;
 }
 </style>
