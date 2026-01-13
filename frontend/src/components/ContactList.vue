@@ -1,5 +1,9 @@
 <script setup lang="ts">
-// 1. Interfaces
+import { ref, computed, onMounted } from 'vue';
+import axios from 'axios';
+import BaseModal from './BaseModal.vue';
+import ContactForm from './ContactForm.vue';
+
 interface Contact {
   id: number;
   name: string;
@@ -7,6 +11,7 @@ interface Contact {
   phone: string;
   is_favorite?: boolean;
   category_name?: string;
+  photo_path?: string;
 }
 
 interface Stat {
@@ -14,36 +19,41 @@ interface Stat {
   total: number;
 }
 
-import { ref, computed, onMounted } from 'vue';
-import axios from 'axios';
-import BaseModal from './BaseModal.vue';
-import ContactForm from './ContactForm.vue';
-
 const API_URL = import.meta.env.VITE_API_URL;
+const SERVER_URL = 'http://localhost:3000';
 
 const contacts = ref<Contact[]>([]);
-const stats = ref<Stat[]>([]); // <--- Onde guardamos os números
+const stats = ref<Stat[]>([]);
 const searchTerm = ref('');
 const showModal = ref(false);
 const editingId = ref<number | undefined>(undefined);
 
-// --- DASHBOARD: BUSCAR ESTATÍSTICAS ---
+// 1. NOVO: Variável de controle do carregamento
+const isLoading = ref(true);
+
 const fetchStats = async () => {
   try {
     const response = await axios.get('http://localhost:3000/api/stats');
     stats.value = response.data;
-  } catch (error) {
-    console.error('Erro ao carregar estatísticas', error);
-  }
+  } catch (error) { console.error(error); }
 };
 
-// --- CONTATOS ---
 const fetchContacts = async () => {
+  // Avisa que começou a carregar
+  isLoading.value = true;
   try {
     const response = await axios.get('http://localhost:3000/api/contacts');
     contacts.value = response.data;
-    fetchStats(); // Atualiza os números também
-  } catch (error) { console.error(error); }
+    fetchStats();
+  } catch (error) {
+    console.error(error);
+  } finally {
+    // Avisa que terminou (independente se deu erro ou sucesso)
+    // O setTimeout é só um charme pra você ver a animação (pode tirar depois)
+    setTimeout(() => {
+      isLoading.value = false;
+    }, 500);
+  }
 };
 
 const toggleFavorite = async (contact: any) => {
@@ -51,20 +61,17 @@ const toggleFavorite = async (contact: any) => {
   contact.is_favorite = !oldValue;
   try {
     await axios.put(`${API_URL}/${contact.id}`, { ...contact, is_favorite: contact.is_favorite });
-  } catch (error) {
-    contact.is_favorite = oldValue;
-  }
+  } catch (error) { contact.is_favorite = oldValue; }
 }
 
 const deleteContact = async (id: number) => {
   if (!confirm('Tem certeza?')) return;
   try {
     await axios.delete(`${API_URL}/${id}`);
-    fetchContacts(); // Recarrega tudo para atualizar os números
+    fetchContacts();
   } catch (e) { alert('Erro ao deletar'); }
 };
 
-// Filtro e Ordenação
 const filteredContacts = computed(() => {
   let list = contacts.value;
   if (searchTerm.value) {
@@ -77,7 +84,6 @@ const filteredContacts = computed(() => {
   });
 });
 
-// Modal
 const openCreate = () => { editingId.value = undefined; showModal.value = true; }
 const openEdit = (id: number) => { editingId.value = id; showModal.value = true; }
 const handleSuccess = () => { showModal.value = false; fetchContacts(); }
@@ -87,12 +93,15 @@ const getInitials = (name?: string | null) => {
   return (name.trim().substring(0, 2) || '?').toUpperCase();
 }
 
+const getPhotoUrl = (path: string) => {
+  return `${SERVER_URL}/${path}`;
+}
+
 onMounted(() => fetchContacts());
 </script>
 
 <template>
   <div class="container">
-
     <div class="header">
       <h2>Painel de Controle</h2>
     </div>
@@ -102,7 +111,6 @@ onMounted(() => fetchContacts());
         <h3>{{ stat.total }}</h3>
         <p>{{ stat.category || 'Sem Categoria' }}</p>
       </div>
-
       <div class="stat-card total-card">
         <h3>{{ contacts.length }}</h3>
         <p>Total Geral</p>
@@ -117,16 +125,26 @@ onMounted(() => fetchContacts());
       <button class="btn-add" @click="openCreate">+ Novo</button>
     </div>
 
-    <div class="contact-list">
-      <p v-if="filteredContacts.length === 0" class="empty-msg">Nenhum contato.</p>
+    <div v-if="isLoading" class="loading-container">
+      <div class="spinner"></div>
+      <p>Carregando contatos...</p>
+    </div>
+
+    <div v-else class="contact-list">
+      <p v-if="filteredContacts.length === 0" class="empty-msg">Nenhum contato encontrado.</p>
 
       <div v-for="contact in filteredContacts" :key="contact.id" class="card">
         <div class="favorite-star" @click="toggleFavorite(contact)">
           {{ contact.is_favorite ? '⭐' : '☆' }}
         </div>
-        <div class="avatar" :class="{ 'avatar-fav': contact.is_favorite }">
-          {{ getInitials(contact.name) }}
+
+        <div class="avatar-wrapper">
+          <img v-if="contact.photo_path" :src="getPhotoUrl(contact.photo_path)" class="avatar-img" alt="Foto" />
+          <div v-else class="avatar" :class="{ 'avatar-fav': contact.is_favorite }">
+            {{ getInitials(contact.name) }}
+          </div>
         </div>
+
         <div class="info">
           <h3>{{ contact.name }}</h3>
           <span v-if="contact.category_name" class="category-badge">
@@ -135,6 +153,7 @@ onMounted(() => fetchContacts());
           <span class="email">{{ contact.email }}</span>
           <span class="phone">{{ contact.phone }}</span>
         </div>
+
         <div class="actions">
           <button class="icon-btn edit" @click="openEdit(contact.id)">✏️</button>
           <button class="icon-btn delete" @click="deleteContact(contact.id)">🗑️</button>
@@ -163,7 +182,6 @@ onMounted(() => fetchContacts());
   text-align: center;
 }
 
-/* 3. ESTILO DOS CARTÕES */
 .stats-row {
   display: flex;
   gap: 15px;
@@ -251,6 +269,34 @@ onMounted(() => fetchContacts());
   cursor: pointer;
 }
 
+/* 3. ESTILOS DO LOADING (GIRATÓRIO) */
+.loading-container {
+  text-align: center;
+  padding: 40px;
+  color: #64748b;
+}
+
+.spinner {
+  margin: 0 auto 15px auto;
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e2e8f0;
+  border-top: 4px solid #2563eb;
+  /* A cor azul que gira */
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
 .contact-list {
   display: flex;
   flex-direction: column;
@@ -278,9 +324,15 @@ onMounted(() => fetchContacts());
   font-size: 20px;
 }
 
-.avatar {
+.avatar-wrapper {
   width: 45px;
   height: 45px;
+  flex-shrink: 0;
+}
+
+.avatar {
+  width: 100%;
+  height: 100%;
   background-color: #dbeafe;
   color: #1e40af;
   border-radius: 50%;
@@ -288,12 +340,19 @@ onMounted(() => fetchContacts());
   justify-content: center;
   align-items: center;
   font-weight: bold;
-  flex-shrink: 0;
 }
 
 .avatar-fav {
   background-color: #fef08a;
   color: #854d0e;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #3b82f6;
 }
 
 .info {
