@@ -28,7 +28,7 @@ const searchTerm = ref('');
 const showModal = ref(false);
 const editingId = ref<number | undefined>(undefined);
 
-// 1. NOVO: Variável de controle do carregamento
+
 const isLoading = ref(true);
 
 const fetchStats = async () => {
@@ -39,7 +39,7 @@ const fetchStats = async () => {
 };
 
 const fetchContacts = async () => {
-  // Avisa que começou a carregar
+
   isLoading.value = true;
   try {
     const response = await axios.get('http://localhost:3000/api/contacts');
@@ -48,8 +48,7 @@ const fetchContacts = async () => {
   } catch (error) {
     console.error(error);
   } finally {
-    // Avisa que terminou (independente se deu erro ou sucesso)
-    // O setTimeout é só um charme pra você ver a animação (pode tirar depois)
+ 
     setTimeout(() => {
       isLoading.value = false;
     }, 500);
