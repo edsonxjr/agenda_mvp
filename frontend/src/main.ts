@@ -1,13 +1,15 @@
-import { createApp } from 'vue'
-import App from './App.vue'
-import router from './router'
+import { createApp } from 'vue';
+import App from './App.vue';
+import axios from 'axios';
 
+// Configuração do Token para as requisições
+axios.interceptors.request.use(config => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
-import { vMaska } from "maska/vue" 
-
-const app = createApp(App)
-
-app.directive("maska", vMaska) 
-
-app.use(router)
-app.mount('#app')
+const app = createApp(App);
+app.mount('#app');
