@@ -1,46 +1,65 @@
 <script setup lang="ts">
-import { RouterLink, RouterView } from 'vue-router'
+import { ref, onMounted } from 'vue';
+import ContactList from './components/ContactList.vue';
+import Login from './components/Login.vue';
+
+const isLoggedIn = ref(false);
+
+// Verifica se já tem o crachá salvo no navegador ao abrir o site
+onMounted(() => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    isLoggedIn.value = true;
+  }
+});
+
+// Quando o login dá certo
+const handleLoginSuccess = () => {
+  isLoggedIn.value = true;
+};
+
+// Função de Logout (Sair)
+const logout = () => {
+  localStorage.removeItem('token'); // Rasga o crachá
+  localStorage.removeItem('userName');
+  isLoggedIn.value = false; // Chuta para a tela de login
+};
 </script>
 
 <template>
-  <div class="layout">
-    <div class="page-content">
-      <RouterView />
+  <div v-if="isLoggedIn">
+    <div class="top-bar">
+      <span>Agenda Segura 🔒</span>
+      <button @click="logout" class="btn-logout">Sair</button>
     </div>
+    <ContactList />
   </div>
+
+  <Login v-else @login-success="handleLoginSuccess" />
 </template>
 
 <style scoped>
-.layout {
-  font-family: sans-serif;
-  max-width: 800px;
-  margin: 0 auto;
-  color: #333;
-}
-
-header {
-  background-color: #f8f9fa;
-  padding: 15px;
-  margin-bottom: 30px;
-  border-bottom: 1px solid #ddd;
-}
-
-nav {
+.top-bar {
+  background-color: #1e293b;
+  color: white;
+  padding: 10px 20px;
   display: flex;
-  gap: 15px;
-  justify-content: center;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
 }
 
-nav a {
-  text-decoration: none;
-  color: #666;
+.btn-logout {
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  padding: 5px 15px;
+  border-radius: 4px;
+  cursor: pointer;
   font-weight: bold;
-  padding: 5px 10px;
 }
 
-nav a.router-link-active {
-  color: #2563eb;
-  background: #eef2ff;
-  border-radius: 5px;
+.btn-logout:hover {
+  background-color: #dc2626;
 }
 </style>
