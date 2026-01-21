@@ -19,7 +19,6 @@ interface Stat {
   total: number;
 }
 
-const API_URL = import.meta.env.VITE_API_URL;
 const SERVER_URL = 'http://localhost:3000';
 
 const contacts = ref<Contact[]>([]);
@@ -27,31 +26,25 @@ const stats = ref<Stat[]>([]);
 const searchTerm = ref('');
 const showModal = ref(false);
 const editingId = ref<number | undefined>(undefined);
-
-
 const isLoading = ref(true);
 
 const fetchStats = async () => {
   try {
-    const response = await axios.get('http://localhost:3000/api/stats');
+    const response = await axios.get(`${SERVER_URL}/api/stats`);
     stats.value = response.data;
   } catch (error) { console.error(error); }
 };
 
 const fetchContacts = async () => {
-
   isLoading.value = true;
   try {
-    const response = await axios.get('http://localhost:3000/api/contacts');
+    const response = await axios.get(`${SERVER_URL}/api/contacts`);
     contacts.value = response.data;
     fetchStats();
   } catch (error) {
     console.error(error);
   } finally {
- 
-    setTimeout(() => {
-      isLoading.value = false;
-    }, 500);
+    setTimeout(() => { isLoading.value = false; }, 400);
   }
 };
 
@@ -59,16 +52,22 @@ const toggleFavorite = async (contact: any) => {
   const oldValue = contact.is_favorite;
   contact.is_favorite = !oldValue;
   try {
-    await axios.put(`${API_URL}/${contact.id}`, { ...contact, is_favorite: contact.is_favorite });
+    await axios.put(`${SERVER_URL}/api/contacts/${contact.id}`, { ...contact, is_favorite: contact.is_favorite });
   } catch (error) { contact.is_favorite = oldValue; }
 }
 
 const deleteContact = async (id: number) => {
-  if (!confirm('Tem certeza?')) return;
+  if (!confirm('Tem certeza que deseja excluir?')) return;
   try {
-    await axios.delete(`${API_URL}/${id}`);
+    await axios.delete(`${SERVER_URL}/api/contacts/${id}`);
     fetchContacts();
   } catch (e) { alert('Erro ao deletar'); }
+};
+
+const openWhatsApp = (phone: string) => {
+  const cleanNumber = phone.replace(/\D/g, '');
+  const finalNumber = cleanNumber.length <= 11 ? `55${cleanNumber}` : cleanNumber;
+  window.open(`https://wa.me/${finalNumber}`, '_blank');
 };
 
 const filteredContacts = computed(() => {
@@ -89,12 +88,10 @@ const handleSuccess = () => { showModal.value = false; fetchContacts(); }
 
 const getInitials = (name?: string | null) => {
   if (!name) return '?';
-  return (name.trim().substring(0, 2) || '?').toUpperCase();
+  return name.trim().split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
 }
 
-const getPhotoUrl = (path: string) => {
-  return `${SERVER_URL}/${path}`;
-}
+const getPhotoUrl = (path: string) => `${SERVER_URL}/${path}`;
 
 onMounted(() => fetchContacts());
 </script>
@@ -102,31 +99,31 @@ onMounted(() => fetchContacts());
 <template>
   <div class="container">
     <div class="header">
-      <h2>Painel de Controle</h2>
+      <h2>Meus Contatos</h2>
     </div>
 
     <div class="stats-row">
       <div v-for="(stat, index) in stats" :key="index" class="stat-card">
         <h3>{{ stat.total }}</h3>
-        <p>{{ stat.category || 'Sem Categoria' }}</p>
+        <p>{{ stat.category || 'Geral' }}</p>
       </div>
       <div class="stat-card total-card">
         <h3>{{ contacts.length }}</h3>
-        <p>Total Geral</p>
+        <p>Total</p>
       </div>
     </div>
 
     <div class="actions-bar">
-      <div class="search-pill">
+      <div class="search-box">
         <span class="search-icon">🔍</span>
-        <input type="text" placeholder="Buscar..." v-model="searchTerm">
+        <input type="text" placeholder="Buscar contato..." v-model="searchTerm">
       </div>
       <button class="btn-add" @click="openCreate">+ Novo</button>
     </div>
 
     <div v-if="isLoading" class="loading-container">
       <div class="spinner"></div>
-      <p>Carregando contatos...</p>
+      <p>Carregando...</p>
     </div>
 
     <div v-else class="contact-list">
@@ -134,7 +131,9 @@ onMounted(() => fetchContacts());
 
       <div v-for="contact in filteredContacts" :key="contact.id" class="card">
         <div class="favorite-star" @click="toggleFavorite(contact)">
-          {{ contact.is_favorite ? '⭐' : '☆' }}
+          <span :class="{ 'star-active': contact.is_favorite }">
+            {{ contact.is_favorite ? '⭐' : '☆' }}
+          </span>
         </div>
 
         <div class="avatar-wrapper">
@@ -145,15 +144,20 @@ onMounted(() => fetchContacts());
         </div>
 
         <div class="info">
-          <h3>{{ contact.name }}</h3>
-          <span v-if="contact.category_name" class="category-badge">
-            {{ contact.category_name }}
-          </span>
-          <span class="email">{{ contact.email }}</span>
-          <span class="phone">{{ contact.phone }}</span>
+          <div class="name-row">
+            <h3>{{ contact.name }}</h3>
+            <span v-if="contact.category_name" class="category-badge">
+              {{ contact.category_name }}
+            </span>
+          </div>
+          <span class="details">{{ contact.phone }} • {{ contact.email }}</span>
         </div>
 
         <div class="actions">
+          <button class="icon-btn whatsapp" @click="openWhatsApp(contact.phone)" title="Enviar WhatsApp">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp"
+              class="wpp-icon" />
+          </button>
           <button class="icon-btn edit" @click="openEdit(contact.id)">✏️</button>
           <button class="icon-btn delete" @click="deleteContact(contact.id)">🗑️</button>
         </div>
@@ -163,7 +167,6 @@ onMounted(() => fetchContacts());
     <BaseModal v-if="showModal" @close="showModal = false">
       <ContactForm :id="editingId" @close="showModal = false" @saved="handleSuccess" />
     </BaseModal>
-
   </div>
 </template>
 
@@ -173,12 +176,17 @@ onMounted(() => fetchContacts());
   color: #333;
   max-width: 800px;
   margin: 0 auto;
-  padding-bottom: 50px;
+  padding: 20px;
 }
 
 .header {
   margin-bottom: 20px;
   text-align: center;
+}
+
+.header h2 {
+  margin: 0;
+  color: #1e293b;
 }
 
 .stats-row {
@@ -193,7 +201,7 @@ onMounted(() => fetchContacts());
   background: white;
   padding: 15px 25px;
   border-radius: 12px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   text-align: center;
   min-width: 100px;
   border: 1px solid #e2e8f0;
@@ -201,7 +209,7 @@ onMounted(() => fetchContacts());
 
 .stat-card h3 {
   margin: 0;
-  font-size: 28px;
+  font-size: 24px;
   color: #2563eb;
 }
 
@@ -228,72 +236,37 @@ onMounted(() => fetchContacts());
 
 .actions-bar {
   display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 10px;
+  gap: 15px;
   margin-bottom: 20px;
 }
 
-.search-pill {
+.search-box {
+  flex-grow: 1;
   display: flex;
   align-items: center;
   background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 50px;
-  padding: 4px;
-  width: 100%;
-  max-width: 500px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0 12px;
 }
 
-.search-pill input {
+.search-box input {
   border: none;
-  background: transparent;
   flex-grow: 1;
-  padding: 10px;
+  padding: 12px;
   font-size: 15px;
   outline: none;
-}
-
-.search-icon {
-  padding-left: 15px;
 }
 
 .btn-add {
   background-color: #10b981;
   color: white;
   border: none;
-  padding: 10px 20px;
-  border-radius: 30px;
+  padding: 0 25px;
+  border-radius: 8px;
   font-weight: 600;
   cursor: pointer;
-}
-
-/* 3. ESTILOS DO LOADING (GIRATÓRIO) */
-.loading-container {
-  text-align: center;
-  padding: 40px;
-  color: #64748b;
-}
-
-.spinner {
-  margin: 0 auto 15px auto;
-  width: 40px;
-  height: 40px;
-  border: 4px solid #e2e8f0;
-  border-top: 4px solid #2563eb;
-  /* A cor azul que gira */
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% {
-    transform: rotate(0deg);
-  }
-
-  100% {
-    transform: rotate(360deg);
-  }
+  font-size: 15px;
 }
 
 .contact-list {
@@ -311,21 +284,27 @@ onMounted(() => fetchContacts());
   padding: 15px;
   border-radius: 12px;
   position: relative;
-  padding-left: 45px;
+  padding-left: 50px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);
 }
 
 .favorite-star {
   position: absolute;
-  left: 12px;
+  left: 15px;
   top: 50%;
   transform: translateY(-50%);
   cursor: pointer;
-  font-size: 20px;
+  font-size: 22px;
+  color: #cbd5e1;
+}
+
+.star-active {
+  color: #f59e0b;
 }
 
 .avatar-wrapper {
-  width: 45px;
-  height: 45px;
+  width: 50px;
+  height: 50px;
   flex-shrink: 0;
 }
 
@@ -339,6 +318,7 @@ onMounted(() => fetchContacts());
   justify-content: center;
   align-items: center;
   font-weight: bold;
+  font-size: 18px;
 }
 
 .avatar-fav {
@@ -351,41 +331,103 @@ onMounted(() => fetchContacts());
   height: 100%;
   border-radius: 50%;
   object-fit: cover;
-  border: 2px solid #3b82f6;
+  border: 2px solid #e2e8f0;
 }
 
 .info {
   flex-grow: 1;
 }
 
-.info h3 {
-  margin: 0 0 4px 0;
-  font-size: 16px;
+.name-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 5px;
 }
 
-.info span {
+.info h3 {
+  margin: 0;
+  font-size: 17px;
+  color: #1e293b;
+}
+
+.details {
   display: block;
-  font-size: 13px;
+  font-size: 14px;
   color: #64748b;
 }
 
 .category-badge {
-  display: inline-block !important;
-  background-color: #e0e7ff;
-  color: #4338ca;
-  font-size: 11px !important;
-  padding: 2px 8px;
+  background-color: #eff6ff;
+  color: #2563eb;
+  font-size: 11px;
+  padding: 3px 8px;
   border-radius: 12px;
-  font-weight: 600;
-  margin-bottom: 4px;
+  font-weight: 700;
   text-transform: uppercase;
 }
 
+.actions {
+  display: flex;
+  gap: 5px;
+}
+
 .icon-btn {
-  background: none;
+  background: #f1f5f9;
   border: none;
   cursor: pointer;
-  font-size: 1.2rem;
-  padding: 6px;
+  padding: 8px;
+  border-radius: 8px;
+  transition: 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-btn:hover {
+  background-color: #e2e8f0;
+}
+
+/* ESTILOS DO WHATSAPP */
+.wpp-icon {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+.whatsapp:hover {
+  background-color: #25D366 !important;
+  /* Verde Oficial */
+}
+
+.delete:hover {
+  background-color: #fee2e2;
+  color: #ef4444;
+}
+
+.loading-container {
+  text-align: center;
+  padding: 40px;
+  color: #64748b;
+}
+
+.spinner {
+  margin: 0 auto 15px auto;
+  width: 30px;
+  height: 30px;
+  border: 3px solid #e2e8f0;
+  border-top: 3px solid #2563eb;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 </style>
