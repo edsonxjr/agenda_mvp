@@ -6,7 +6,6 @@ import path from 'path';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
-// Extensão do tipo Request para incluir o ID do usuário logado
 interface AuthRequest extends Request {
   userId?: number;
 }
@@ -17,7 +16,6 @@ app.use(cors());
 
 const JWT_SECRET = 'minha_chave_super_secreta_do_edson';
 
-// --- CONFIGURAÇÃO DO MULTER (Upload de Fotos) ---
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, 'uploads/'),
   filename: (req, file, cb) => {
@@ -28,7 +26,6 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 app.use('/uploads', express.static('uploads'));
 
-// --- MIDDLEWARE DE PROTEÇÃO ---
 const authMiddleware = (req: AuthRequest, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ message: 'Token não fornecido.' });
@@ -45,7 +42,6 @@ const authMiddleware = (req: AuthRequest, res: Response, next: NextFunction) => 
 
 // --- ROTAS DE AUTENTICAÇÃO ---
 
-// Registro com foto de perfil
 app.post('/api/auth/register', upload.single('photo'), async (req: Request, res: Response) => {
   try {
     const { name, email, password } = req.body;
@@ -68,7 +64,6 @@ app.post('/api/auth/register', upload.single('photo'), async (req: Request, res:
   }
 });
 
-// Login devolvendo o link da foto
 app.post('/api/auth/login', async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
@@ -90,7 +85,7 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
   }
 });
 
-// --- ROTAS DE CONTATOS (Privadas) ---
+// --- ROTAS DE CONTATOS ---
 
 app.get('/api/contacts', authMiddleware, async (req: AuthRequest, res: Response) => {
   const contacts = await knex('contacts')
@@ -102,35 +97,41 @@ app.get('/api/contacts', authMiddleware, async (req: AuthRequest, res: Response)
 
 app.post('/api/contacts', authMiddleware, upload.single('photo'), async (req: AuthRequest, res: Response) => {
   try {
-    const { name, email, phone, is_favorite, category_id } = req.body;
+    // AJUSTE: Incluído birth_date no req.body
+    const { name, email, phone, is_favorite, category_id, birth_date } = req.body;
     const photo_path = req.file ? req.file.path : null;
 
     await knex('contacts').insert({
-      name, email, phone,
+      name,
+      email,
+      phone,
       is_favorite: is_favorite === 'true' || is_favorite === true,
       category_id: (category_id && category_id !== 'null') ? Number(category_id) : null,
+      birth_date: birth_date || null, // AJUSTE: Salvando a data de nascimento
       photo_path,
       user_id: req.userId
     });
 
     return res.status(201).json({ message: 'Contato criado!' });
   } catch (error) {
+    console.error(error);
     return res.status(500).json({ message: 'Erro ao criar contato.' });
   }
 });
 
-// Rota PUT com correção para o bug de favoritos
 app.put('/api/contacts/:id', authMiddleware, upload.single('photo'), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, email, phone, is_favorite, category_id } = req.body;
+    // AJUSTE: Incluído birth_date no req.body
+    const { name, email, phone, is_favorite, category_id, birth_date } = req.body;
 
     const updateData: any = {
       name,
       email,
       phone,
       is_favorite: is_favorite === 'true' || is_favorite === true,
-      category_id: (category_id && category_id !== 'null') ? Number(category_id) : null
+      category_id: (category_id && category_id !== 'null') ? Number(category_id) : null,
+      birth_date: birth_date || null // AJUSTE: Atualizando a data de nascimento
     };
 
     if (req.file) updateData.photo_path = req.file.path;
