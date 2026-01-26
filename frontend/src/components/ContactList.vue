@@ -12,6 +12,7 @@ interface Contact {
   is_favorite?: boolean;
   category_name?: string;
   photo_path?: string;
+  birth_date?: string; // Adicionado campo de data
 }
 
 interface Stat {
@@ -27,6 +28,18 @@ const searchTerm = ref('');
 const showModal = ref(false);
 const editingId = ref<number | undefined>(undefined);
 const isLoading = ref(true);
+
+// --- FUNÇÃO PARA CHECAR ANIVERSÁRIO ---
+const isBirthday = (date: string | null | undefined) => {
+  if (!date) return false;
+
+  const today = new Date();
+  const birth = new Date(date);
+
+  // Usamos o UTC para evitar erros de fuso horário na data vinda do banco
+  return today.getUTCDate() === birth.getUTCDate() &&
+    today.getUTCMonth() === birth.getUTCMonth();
+};
 
 const fetchStats = async () => {
   try {
@@ -146,6 +159,11 @@ onMounted(() => fetchContacts());
         <div class="info">
           <div class="name-row">
             <h3>{{ contact.name }}</h3>
+
+            <span v-if="isBirthday(contact.birth_date)" class="bday-icon" title="Aniversariante do dia!">
+              🎂
+            </span>
+
             <span v-if="contact.category_name" class="category-badge">
               {{ contact.category_name }}
             </span>
@@ -171,6 +189,28 @@ onMounted(() => fetchContacts());
 </template>
 
 <style scoped>
+/* (Mantenha seus estilos anteriores e adicione estes novos abaixo) */
+
+.bday-icon {
+  font-size: 18px;
+  cursor: help;
+  animation: bounce 1s infinite;
+  display: inline-block;
+}
+
+@keyframes bounce {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+/* Restante do seu CSS existente... */
 .container {
   font-family: 'Segoe UI', sans-serif;
   color: #333;
@@ -388,7 +428,6 @@ onMounted(() => fetchContacts());
   background-color: #e2e8f0;
 }
 
-/* ESTILOS DO WHATSAPP */
 .wpp-icon {
   width: 20px;
   height: 20px;
@@ -397,7 +436,6 @@ onMounted(() => fetchContacts());
 
 .whatsapp:hover {
   background-color: #25D366 !important;
-  /* Verde Oficial */
 }
 
 .delete:hover {
