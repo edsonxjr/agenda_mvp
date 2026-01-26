@@ -10,33 +10,29 @@ interface Category {
 const props = defineProps<{ id?: number }>();
 const emit = defineEmits(['close', 'saved']);
 
-// URL base para API e para Imagens
 const API_URL = import.meta.env.VITE_API_URL;
-const SERVER_URL = 'http://localhost:3000'; // Para montar o link da foto
+const SERVER_URL = 'http://localhost:3000';
 
 const formData = ref({
   name: '',
   email: '',
   phone: '',
   category_id: '' as string | number,
-  is_favorite: false
+  is_favorite: false,
+  birth_date: '' // 1. AJUSTE: Adicionado campo de data
 });
 
-const selectedFile = ref<File | null>(null); // Guarda o arquivo real
-const previewUrl = ref<string | null>(null); // Guarda o link para mostrar na tela
-
+const selectedFile = ref<File | null>(null);
+const previewUrl = ref<string | null>(null);
 const isEditing = ref(false);
 const errors = ref({ name: '', email: '', phone: '' });
 const categories = ref<Category[]>([]);
 
-// --- 1. SELEÇÃO DE ARQUIVO ---
 const handleFileChange = (event: Event) => {
   const target = event.target as HTMLInputElement;
   if (target.files && target.files[0]) {
     const file = target.files[0];
     selectedFile.value = file;
-
-    // Cria uma URL temporária para mostrar a foto na hora
     previewUrl.value = URL.createObjectURL(file);
   }
 };
@@ -44,38 +40,27 @@ const handleFileChange = (event: Event) => {
 const validateForm = () => {
   let isValid = true;
   errors.value = { name: '', email: '', phone: '' };
-
-  if (formData.value.name.trim().length < 3) {
-    errors.value.name = 'Mínimo 3 letras.';
-    isValid = false;
-  }
+  if (formData.value.name.trim().length < 3) { errors.value.name = 'Mínimo 3 letras.'; isValid = false; }
   const phoneDigits = formData.value.phone.replace(/\D/g, '');
-  if (phoneDigits.length < 10) {
-    errors.value.phone = 'Mínimo 10 números.';
-    isValid = false;
-  }
-  if (!formData.value.email.includes('@')) {
-    errors.value.email = 'E-mail inválido.';
-    isValid = false;
-  }
+  if (phoneDigits.length < 10) { errors.value.phone = 'Mínimo 10 números.'; isValid = false; }
+  if (!formData.value.email.includes('@')) { errors.value.email = 'E-mail inválido.'; isValid = false; }
   return isValid;
 };
 
 const fetchCategories = async () => {
   try {
-    const response = await axios.get('http://localhost:3000/api/categories');
+    const response = await axios.get(`${SERVER_URL}/api/categories`);
     categories.value = response.data;
   } catch (error) { console.error(error); }
 };
 
 const loadContact = async () => {
-  // Reseta tudo
   errors.value = { name: '', email: '', phone: '' };
   selectedFile.value = null;
   previewUrl.value = null;
 
   if (!props.id) {
-    formData.value = { name: '', email: '', phone: '', category_id: '', is_favorite: false };
+    formData.value = { name: '', email: '', phone: '', category_id: '', is_favorite: false, birth_date: '' };
     isEditing.value = false;
     return;
   }
@@ -90,14 +75,14 @@ const loadContact = async () => {
       email: data.email,
       phone: data.phone,
       category_id: data.category_id || '',
-      is_favorite: Boolean(data.is_favorite)
+      is_favorite: Boolean(data.is_favorite),
+      // 2. AJUSTE: Trata a data para o formato do calendário (YYYY-MM-DD)
+      birth_date: data.birth_date ? data.birth_date.split('T')[0] : ''
     };
 
-    // Se o contato já tiver foto no banco, mostramos ela
     if (data.photo_path) {
       previewUrl.value = `${SERVER_URL}/${data.photo_path}`;
     }
-
   } catch (error) {
     alert('Erro ao carregar.');
     emit('close');
@@ -107,25 +92,27 @@ const loadContact = async () => {
 const handleSubmit = async () => {
   if (!validateForm()) return;
 
-  // --- 2. PREPARANDO O FORM DATA (A Caixa de Correio) ---
   const data = new FormData();
   data.append('name', formData.value.name);
   data.append('email', formData.value.email);
   data.append('phone', formData.value.phone);
-  data.append('is_favorite', String(formData.value.is_favorite)); // Envia como texto "true"/"false"
+  data.append('is_favorite', String(formData.value.is_favorite));
+
+  // 3. AJUSTE: Adicionando a data no FormData
+  if (formData.value.birth_date) {
+    data.append('birth_date', formData.value.birth_date);
+  }
 
   if (formData.value.category_id) {
     data.append('category_id', String(formData.value.category_id));
   }
 
-  // Se o usuário escolheu uma foto nova, coloca na caixa
   if (selectedFile.value) {
     data.append('photo', selectedFile.value);
   }
 
   try {
     if (isEditing.value) {
-      // O Axios detecta o FormData e ajusta os headers sozinho
       await axios.put(`${API_URL}/${props.id}`, data);
       alert('Contato atualizado!');
     } else {
@@ -141,11 +128,7 @@ const handleSubmit = async () => {
 };
 
 watch(() => props.id, loadContact);
-
-onMounted(() => {
-  fetchCategories();
-  loadContact();
-});
+onMounted(() => { fetchCategories(); loadContact(); });
 </script>
 
 <template>
@@ -153,15 +136,11 @@ onMounted(() => {
     <h2>{{ isEditing ? '✏️ Editar Contato' : '📸 Novo Contato' }}</h2>
 
     <form @submit.prevent="handleSubmit">
-
       <div class="photo-section">
         <div class="photo-preview" v-if="previewUrl">
-          <img :src="previewUrl" alt="Prévia da foto">
+          <img :src="previewUrl" alt="Prévia">
         </div>
-        <div class="photo-placeholder" v-else>
-          👤
-        </div>
-
+        <div class="photo-placeholder" v-else>👤</div>
         <label class="custom-file-upload">
           <input type="file" @change="handleFileChange" accept="image/*">
           Escolher Foto
@@ -189,12 +168,15 @@ onMounted(() => {
       </div>
 
       <div class="input-group">
+        <label>Data de Nascimento</label>
+        <input v-model="formData.birth_date" type="date" class="date-input">
+      </div>
+
+      <div class="input-group">
         <label>Categoria</label>
         <select v-model="formData.category_id" class="select-input">
           <option value="">Sem Categoria</option>
-          <option v-for="cat in categories" :key="cat.id" :value="cat.id">
-            {{ cat.name }}
-          </option>
+          <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
         </select>
       </div>
 
@@ -207,16 +189,25 @@ onMounted(() => {
 
       <div class="actions">
         <button type="button" class="btn-cancel" @click="$emit('close')">Cancelar</button>
-        <button type="submit" class="btn-save">
-          {{ isEditing ? 'Salvar Alterações' : 'Criar Contato' }}
-        </button>
+        <button type="submit" class="btn-save">{{ isEditing ? 'Salvar Alterações' : 'Criar Contato' }}</button>
       </div>
     </form>
   </div>
 </template>
 
 <style scoped>
-/* Estilos gerais iguais aos anteriores */
+/* (Mantenha seus estilos anteriores e adicione este para o campo de data) */
+.date-input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  outline: none;
+  background-color: white;
+  font-family: inherit;
+}
+
+/* Reutilize os estilos que você já tinha no arquivo original */
 h2 {
   margin-top: 0;
   color: #1e293b;
@@ -250,32 +241,6 @@ input:not([type="checkbox"]):not([type="file"]),
   border-radius: 6px;
   outline: none;
   box-sizing: border-box;
-  transition: border-color 0.2s;
-  background-color: white;
-}
-
-input:focus,
-.select-input:focus {
-  border-color: #3b82f6;
-}
-
-.input-error {
-  border-color: #ef4444 !important;
-  background-color: #fef2f2;
-}
-
-.error-msg {
-  color: #ef4444;
-  font-size: 12px;
-  font-weight: bold;
-  margin-top: 4px;
-  display: block;
-}
-
-.actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 15px;
 }
 
 .btn-save {
@@ -289,10 +254,6 @@ input:focus,
   cursor: pointer;
 }
 
-.btn-save:hover {
-  background-color: #1d4ed8;
-}
-
 .btn-cancel {
   padding: 12px 20px;
   background-color: #f1f5f9;
@@ -303,7 +264,6 @@ input:focus,
   cursor: pointer;
 }
 
-/* --- ESTILOS NOVOS DA FOTO --- */
 .photo-section {
   display: flex;
   flex-direction: column;
@@ -317,7 +277,6 @@ input:focus,
   border-radius: 50%;
   overflow: hidden;
   border: 3px solid #3b82f6;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   margin-bottom: 10px;
 }
 
@@ -337,28 +296,19 @@ input:focus,
   justify-content: center;
   font-size: 40px;
   margin-bottom: 10px;
-  border: 3px solid #cbd5e1;
 }
 
-/* Esconde o input file feio e cria um botão bonito */
 input[type="file"] {
   display: none;
 }
 
 .custom-file-upload {
   border: 1px solid #cbd5e1;
-  display: inline-block;
   padding: 6px 12px;
   cursor: pointer;
   border-radius: 4px;
   font-size: 13px;
   background: #f8fafc;
-  color: #334155;
-  transition: background 0.2s;
-}
-
-.custom-file-upload:hover {
-  background: #e2e8f0;
 }
 
 .checkbox-group {
